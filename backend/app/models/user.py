@@ -15,8 +15,12 @@ from app.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -24,5 +28,9 @@ class User(Base):
     )
 
     # Relationships
-    memberships: Mapped[List["OrganizationMember"]] = relationship(back_populates="user")  # noqa: F821
-    audit_logs: Mapped[List["AuditLog"]] = relationship(back_populates="user")  # noqa: F821
+    memberships: Mapped[List["OrganizationMember"]] = relationship(
+        back_populates="user"
+    )  # noqa: F821
+    audit_logs: Mapped[List["AuditLog"]] = relationship(
+        back_populates="user"
+    )  # noqa: F821

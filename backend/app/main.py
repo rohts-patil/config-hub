@@ -15,7 +15,15 @@ from app.models import user, organization, product, config, environment  # noqa:
 from app.models import setting, targeting, segment, permission  # noqa: F401
 
 # Import routers
-from app.routers import auth, organizations, products, configs, settings as settings_router, segments, sdk
+from app.routers import (
+    auth,
+    organizations,
+    products,
+    configs,
+    settings as settings_router,
+    segments,
+    sdk,
+)
 
 
 @asynccontextmanager

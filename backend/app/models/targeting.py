@@ -59,29 +59,51 @@ class ConditionType(str, enum.Enum):
 class TargetingRule(Base):
     __tablename__ = "targeting_rules"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    setting_value_id: Mapped[str] = mapped_column(String(36), ForeignKey("setting_values.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    setting_value_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("setting_values.id", ondelete="CASCADE"), nullable=False
+    )
     served_value: Mapped[dict] = mapped_column(JSON, nullable=False)  # {"v": ...}
     order: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
-    setting_value: Mapped["SettingValue"] = relationship(back_populates="targeting_rules")  # noqa: F821
-    conditions: Mapped[List["Condition"]] = relationship(back_populates="targeting_rule", cascade="all, delete-orphan")
+    setting_value: Mapped["SettingValue"] = relationship(
+        back_populates="targeting_rules"
+    )  # noqa: F821
+    conditions: Mapped[List["Condition"]] = relationship(
+        back_populates="targeting_rule", cascade="all, delete-orphan"
+    )
 
 
 class Condition(Base):
     __tablename__ = "conditions"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    targeting_rule_id: Mapped[str] = mapped_column(String(36), ForeignKey("targeting_rules.id", ondelete="CASCADE"), nullable=False)
-    condition_type: Mapped[ConditionType] = mapped_column(SAEnum(ConditionType), default=ConditionType.USER, nullable=False)
-    attribute: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # user attribute name
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    targeting_rule_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("targeting_rules.id", ondelete="CASCADE"), nullable=False
+    )
+    condition_type: Mapped[ConditionType] = mapped_column(
+        SAEnum(ConditionType), default=ConditionType.USER, nullable=False
+    )
+    attribute: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )  # user attribute name
     comparator: Mapped[Comparator] = mapped_column(SAEnum(Comparator), nullable=False)
-    comparison_value: Mapped[dict] = mapped_column(JSON, nullable=False)  # {"v": "value"} or {"v": ["a","b"]}
+    comparison_value: Mapped[dict] = mapped_column(
+        JSON, nullable=False
+    )  # {"v": "value"} or {"v": ["a","b"]}
     # For segment conditions
-    segment_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("segments.id"), nullable=True)
+    segment_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("segments.id"), nullable=True
+    )
     # For flag prerequisite conditions
-    prerequisite_setting_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("settings.id"), nullable=True)
+    prerequisite_setting_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("settings.id"), nullable=True
+    )
 
     # Relationships
     targeting_rule: Mapped["TargetingRule"] = relationship(back_populates="conditions")
@@ -90,11 +112,17 @@ class Condition(Base):
 class PercentageOption(Base):
     __tablename__ = "percentage_options"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    setting_value_id: Mapped[str] = mapped_column(String(36), ForeignKey("setting_values.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    setting_value_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("setting_values.id", ondelete="CASCADE"), nullable=False
+    )
     percentage: Mapped[int] = mapped_column(Integer, nullable=False)  # 0-100
     value: Mapped[dict] = mapped_column(JSON, nullable=False)  # {"v": ...}
     order: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
-    setting_value: Mapped["SettingValue"] = relationship(back_populates="percentage_options")  # noqa: F821
+    setting_value: Mapped["SettingValue"] = relationship(
+        back_populates="percentage_options"
+    )  # noqa: F821

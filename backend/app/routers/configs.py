@@ -14,15 +14,21 @@ from app.models.config import Config
 from app.models.environment import Environment
 from app.models.permission import SDKKey
 from app.schemas.schemas import (
-    ConfigCreate, ConfigUpdate, ConfigOut,
-    EnvironmentCreate, EnvironmentUpdate, EnvironmentOut,
+    ConfigCreate,
+    ConfigUpdate,
+    ConfigOut,
+    EnvironmentCreate,
+    EnvironmentUpdate,
+    EnvironmentOut,
     SDKKeyOut,
 )
 from app.services.auth import get_current_user
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-config_router = APIRouter(prefix="/api/v1/products/{product_id}/configs", tags=["Configs"])
+config_router = APIRouter(
+    prefix="/api/v1/products/{product_id}/configs", tags=["Configs"]
+)
 
 
 @config_router.get("", response_model=list[ConfigOut])
@@ -31,7 +37,9 @@ async def list_configs(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Config).where(Config.product_id == product_id).order_by(Config.order))
+    result = await db.execute(
+        select(Config).where(Config.product_id == product_id).order_by(Config.order)
+    )
     return result.scalars().all()
 
 
@@ -47,7 +55,9 @@ async def create_config(
     await db.flush()
 
     # Auto-generate SDK keys for every existing environment
-    envs = await db.execute(select(Environment).where(Environment.product_id == product_id))
+    envs = await db.execute(
+        select(Environment).where(Environment.product_id == product_id)
+    )
     for env in envs.scalars().all():
         sdk_key = SDKKey(
             config_id=config.id,
@@ -99,7 +109,9 @@ async def delete_config(
 
 # ── Environment ───────────────────────────────────────────────────────────────
 
-env_router = APIRouter(prefix="/api/v1/products/{product_id}/environments", tags=["Environments"])
+env_router = APIRouter(
+    prefix="/api/v1/products/{product_id}/environments", tags=["Environments"]
+)
 
 
 @env_router.get("", response_model=list[EnvironmentOut])
@@ -109,7 +121,9 @@ async def list_environments(
     current_user: User = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(Environment).where(Environment.product_id == product_id).order_by(Environment.order)
+        select(Environment)
+        .where(Environment.product_id == product_id)
+        .order_by(Environment.order)
     )
     return result.scalars().all()
 
@@ -147,7 +161,9 @@ async def update_environment(
     current_user: User = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(Environment).where(Environment.id == env_id, Environment.product_id == product_id)
+        select(Environment).where(
+            Environment.id == env_id, Environment.product_id == product_id
+        )
     )
     env = result.scalar_one_or_none()
     if not env:
@@ -170,7 +186,9 @@ async def delete_environment(
     current_user: User = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(Environment).where(Environment.id == env_id, Environment.product_id == product_id)
+        select(Environment).where(
+            Environment.id == env_id, Environment.product_id == product_id
+        )
     )
     env = result.scalar_one_or_none()
     if not env:
@@ -180,7 +198,9 @@ async def delete_environment(
 
 # ── SDK Keys ──────────────────────────────────────────────────────────────────
 
-sdk_key_router = APIRouter(prefix="/api/v1/products/{product_id}/sdk-keys", tags=["SDK Keys"])
+sdk_key_router = APIRouter(
+    prefix="/api/v1/products/{product_id}/sdk-keys", tags=["SDK Keys"]
+)
 
 
 @sdk_key_router.get("", response_model=list[SDKKeyOut])
@@ -190,8 +210,6 @@ async def list_sdk_keys(
     current_user: User = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(SDKKey)
-        .join(Config)
-        .where(Config.product_id == product_id)
+        select(SDKKey).join(Config).where(Config.product_id == product_id)
     )
     return result.scalars().all()

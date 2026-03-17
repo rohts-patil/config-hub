@@ -17,7 +17,7 @@ async def get_config_json(
     db: AsyncSession = Depends(get_db),
 ):
     """Public endpoint — no authentication required.
-    
+
     SDKs poll this endpoint to fetch the config JSON,
     then evaluate flags client-side using the cached data.
     """

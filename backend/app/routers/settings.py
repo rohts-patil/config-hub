@@ -10,11 +10,20 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.user import User
 from app.models.setting import Setting, SettingValue, SettingType
-from app.models.targeting import TargetingRule, Condition, PercentageOption, Comparator, ConditionType
+from app.models.targeting import (
+    TargetingRule,
+    Condition,
+    PercentageOption,
+    Comparator,
+    ConditionType,
+)
 from app.models.environment import Environment
 from app.schemas.schemas import (
-    SettingCreate, SettingUpdate, SettingOut,
-    SettingValueUpdate, SettingValueOut,
+    SettingCreate,
+    SettingUpdate,
+    SettingOut,
+    SettingValueUpdate,
+    SettingValueOut,
 )
 from app.services.auth import get_current_user
 
@@ -44,14 +53,19 @@ async def create_setting(
     try:
         s_type = SettingType(body.setting_type)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid setting type: {body.setting_type}")
+        raise HTTPException(
+            status_code=400, detail=f"Invalid setting type: {body.setting_type}"
+        )
 
     # Check key uniqueness within config
     existing = await db.execute(
         select(Setting).where(Setting.config_id == config_id, Setting.key == body.key)
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"Setting key '{body.key}' already exists in this config")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Setting key '{body.key}' already exists in this config",
+        )
 
     setting = Setting(
         config_id=config_id,
@@ -65,6 +79,7 @@ async def create_setting(
 
     # Auto-create SettingValues for all environments in the same product
     from app.models.config import Config
+
     cfg = await db.execute(select(Config).where(Config.id == config_id))
     config_obj = cfg.scalar_one_or_none()
     if config_obj:
@@ -141,6 +156,7 @@ async def delete_setting(
 
 # ── Setting Value + Targeting Rules per Environment ───────────────────────────
 
+
 @router.get("/{setting_id}/values/{env_id}", response_model=SettingValueOut)
 async def get_setting_value(
     config_id: str,
@@ -185,11 +201,16 @@ async def update_setting_value(
             try:
                 comp = Comparator(cond_in.comparator)
             except ValueError:
-                raise HTTPException(status_code=400, detail=f"Invalid comparator: {cond_in.comparator}")
+                raise HTTPException(
+                    status_code=400, detail=f"Invalid comparator: {cond_in.comparator}"
+                )
             try:
                 ctype = ConditionType(cond_in.condition_type)
             except ValueError:
-                raise HTTPException(status_code=400, detail=f"Invalid condition type: {cond_in.condition_type}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid condition type: {cond_in.condition_type}",
+                )
 
             condition = Condition(
                 targeting_rule_id=rule.id,
@@ -222,18 +243,26 @@ async def update_setting_value(
     return await _load_setting_value(setting_id, env_id, db)
 
 
-async def _load_setting_value(setting_id: str, env_id: str, db: AsyncSession) -> SettingValue:
+async def _load_setting_value(
+    setting_id: str, env_id: str, db: AsyncSession
+) -> SettingValue:
     result = await db.execute(
         select(SettingValue)
         .options(
-            selectinload(SettingValue.targeting_rules).selectinload(TargetingRule.conditions),
+            selectinload(SettingValue.targeting_rules).selectinload(
+                TargetingRule.conditions
+            ),
             selectinload(SettingValue.percentage_options),
         )
-        .where(SettingValue.setting_id == setting_id, SettingValue.environment_id == env_id)
+        .where(
+            SettingValue.setting_id == setting_id, SettingValue.environment_id == env_id
+        )
     )
     sv = result.scalar_one_or_none()
     if not sv:
-        raise HTTPException(status_code=404, detail="Setting value not found for this environment")
+        raise HTTPException(
+            status_code=404, detail="Setting value not found for this environment"
+        )
     return sv
 
 

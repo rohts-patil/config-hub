@@ -15,8 +15,12 @@ from app.database import Base
 class Environment(Base):
     __tablename__ = "environments"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    product_id: Mapped[str] = mapped_column(String(36), ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    product_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("products.id", ondelete="CASCADE"), nullable=False
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     color: Mapped[str] = mapped_column(String(7), default="#4CAF50")  # hex color
     order: Mapped[int] = mapped_column(Integer, default=0)
@@ -25,6 +29,12 @@ class Environment(Base):
     )
 
     # Relationships
-    product: Mapped["Product"] = relationship(back_populates="environments")  # noqa: F821
-    setting_values: Mapped[List["SettingValue"]] = relationship(back_populates="environment", cascade="all, delete-orphan")  # noqa: F821
-    sdk_keys: Mapped[List["SDKKey"]] = relationship(back_populates="environment", cascade="all, delete-orphan")  # noqa: F821
+    product: Mapped["Product"] = relationship(
+        back_populates="environments"
+    )  # noqa: F821
+    setting_values: Mapped[List["SettingValue"]] = relationship(
+        back_populates="environment", cascade="all, delete-orphan"
+    )  # noqa: F821
+    sdk_keys: Mapped[List["SDKKey"]] = relationship(
+        back_populates="environment", cascade="all, delete-orphan"
+    )  # noqa: F821

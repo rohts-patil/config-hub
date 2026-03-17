@@ -11,7 +11,10 @@ from app.database import get_db
 from app.models.user import User
 from app.models.organization import Organization, OrganizationMember, OrgRole
 from app.schemas.schemas import (
-    OrganizationCreate, OrganizationUpdate, OrganizationOut, OrgMemberOut,
+    OrganizationCreate,
+    OrganizationUpdate,
+    OrganizationOut,
+    OrgMemberOut,
 )
 from app.services.auth import get_current_user
 
@@ -20,9 +23,7 @@ router = APIRouter(prefix="/api/v1/organizations", tags=["Organizations"])
 
 async def _get_org_as_member(org_id: str, user: User, db: AsyncSession) -> Organization:
     """Fetch org ensuring the current user is a member."""
-    result = await db.execute(
-        select(Organization).where(Organization.id == org_id)
-    )
+    result = await db.execute(select(Organization).where(Organization.id == org_id))
     org = result.scalar_one_or_none()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")

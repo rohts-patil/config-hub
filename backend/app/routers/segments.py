@@ -38,7 +38,9 @@ async def create_segment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    segment = Segment(product_id=product_id, name=body.name, description=body.description)
+    segment = Segment(
+        product_id=product_id, name=body.name, description=body.description
+    )
     db.add(segment)
     await db.flush()
 
@@ -46,7 +48,9 @@ async def create_segment(
         try:
             comp = Comparator(cond_in.comparator)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid comparator: {cond_in.comparator}")
+            raise HTTPException(
+                status_code=400, detail=f"Invalid comparator: {cond_in.comparator}"
+            )
         cond = SegmentCondition(
             segment_id=segment.id,
             attribute=cond_in.attribute,
@@ -92,7 +96,9 @@ async def update_segment(
             try:
                 comp = Comparator(cond_in.comparator)
             except ValueError:
-                raise HTTPException(status_code=400, detail=f"Invalid comparator: {cond_in.comparator}")
+                raise HTTPException(
+                    status_code=400, detail=f"Invalid comparator: {cond_in.comparator}"
+                )
             cond = SegmentCondition(
                 segment_id=segment.id,
                 attribute=cond_in.attribute,

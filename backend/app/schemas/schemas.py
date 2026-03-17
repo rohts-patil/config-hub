@@ -8,6 +8,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
+
 class UserRegister(BaseModel):
     email: EmailStr
     name: str = Field(min_length=1, max_length=255)
@@ -34,6 +35,7 @@ class UserOut(BaseModel):
 
 
 # ── Organization ──────────────────────────────────────────────────────────────
+
 
 class OrganizationCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
@@ -62,6 +64,7 @@ class OrgMemberOut(BaseModel):
 
 # ── Product ───────────────────────────────────────────────────────────────────
 
+
 class ProductCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str | None = None
@@ -84,6 +87,7 @@ class ProductOut(BaseModel):
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
+
 class ConfigCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
 
@@ -104,6 +108,7 @@ class ConfigOut(BaseModel):
 
 
 # ── Environment ───────────────────────────────────────────────────────────────
+
 
 class EnvironmentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
@@ -128,6 +133,7 @@ class EnvironmentOut(BaseModel):
 
 
 # ── Setting (Feature Flag) ───────────────────────────────────────────────────
+
 
 class SettingCreate(BaseModel):
     key: str = Field(min_length=1, max_length=255, pattern=r"^[a-zA-Z0-9_\-\.]+$")
@@ -156,6 +162,7 @@ class SettingOut(BaseModel):
 
 
 # ── Targeting Rules ──────────────────────────────────────────────────────────
+
 
 class ConditionIn(BaseModel):
     condition_type: str = "user"  # user, flag, segment
@@ -228,6 +235,7 @@ class SettingValueOut(BaseModel):
 
 # ── Segment ──────────────────────────────────────────────────────────────────
 
+
 class SegmentConditionIn(BaseModel):
     attribute: str
     comparator: str
@@ -268,6 +276,7 @@ class SegmentOut(BaseModel):
 
 # ── SDK Key ──────────────────────────────────────────────────────────────────
 
+
 class SDKKeyOut(BaseModel):
     id: str
     config_id: str
@@ -280,6 +289,7 @@ class SDKKeyOut(BaseModel):
 
 
 # ── Audit Log ────────────────────────────────────────────────────────────────
+
 
 class AuditLogOut(BaseModel):
     id: str
@@ -297,6 +307,7 @@ class AuditLogOut(BaseModel):
 
 
 # ── Webhook ──────────────────────────────────────────────────────────────────
+
 
 class WebhookCreate(BaseModel):
     url: str = Field(max_length=2048)
@@ -325,6 +336,7 @@ class WebhookOut(BaseModel):
 
 
 # ── Tag ──────────────────────────────────────────────────────────────────────
+
 
 class TagCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)

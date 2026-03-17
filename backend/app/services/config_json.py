@@ -15,12 +15,14 @@ from app.models.permission import SDKKey
 
 async def generate_config_json(sdk_key_str: str, db: AsyncSession) -> dict | None:
     """Generate the config JSON blob that SDKs fetch and cache locally.
-    
+
     Returns None if the SDK key is invalid or revoked.
     """
     # Look up SDK key
     result = await db.execute(
-        select(SDKKey).where(SDKKey.key == sdk_key_str, SDKKey.revoked == False)  # noqa: E712
+        select(SDKKey).where(
+            SDKKey.key == sdk_key_str, SDKKey.revoked == False
+        )  # noqa: E712
     )
     sdk_key = result.scalar_one_or_none()
     if not sdk_key:
@@ -47,8 +49,9 @@ async def generate_config_json(sdk_key_str: str, db: AsyncSession) -> dict | Non
         sv_result = await db.execute(
             select(SettingValue)
             .options(
-                selectinload(SettingValue.targeting_rules)
-                .selectinload(TargetingRule.conditions),
+                selectinload(SettingValue.targeting_rules).selectinload(
+                    TargetingRule.conditions
+                ),
                 selectinload(SettingValue.percentage_options),
             )
             .where(
@@ -59,8 +62,16 @@ async def generate_config_json(sdk_key_str: str, db: AsyncSession) -> dict | Non
         sv = sv_result.scalar_one_or_none()
 
         setting_data: dict = {
-            "type": setting.setting_type.value if hasattr(setting.setting_type, 'value') else setting.setting_type,
-            "value": sv.default_value.get("v") if sv and sv.default_value else _type_default(setting.setting_type),
+            "type": (
+                setting.setting_type.value
+                if hasattr(setting.setting_type, "value")
+                else setting.setting_type
+            ),
+            "value": (
+                sv.default_value.get("v")
+                if sv and sv.default_value
+                else _type_default(setting.setting_type)
+            ),
         }
 
         # Add targeting rules
@@ -70,12 +81,28 @@ async def generate_config_json(sdk_key_str: str, db: AsyncSession) -> dict | Non
                 {
                     "conditions": [
                         {
-                            "type": c.condition_type.value if hasattr(c.condition_type, 'value') else c.condition_type,
+                            "type": (
+                                c.condition_type.value
+                                if hasattr(c.condition_type, "value")
+                                else c.condition_type
+                            ),
                             "attribute": c.attribute,
-                            "comparator": c.comparator.value if hasattr(c.comparator, 'value') else c.comparator,
-                            "comparisonValue": c.comparison_value.get("v") if c.comparison_value else None,
+                            "comparator": (
+                                c.comparator.value
+                                if hasattr(c.comparator, "value")
+                                else c.comparator
+                            ),
+                            "comparisonValue": (
+                                c.comparison_value.get("v")
+                                if c.comparison_value
+                                else None
+                            ),
                             **({"segmentId": c.segment_id} if c.segment_id else {}),
-                            **({"prerequisiteFlagKey": c.prerequisite_setting_id} if c.prerequisite_setting_id else {}),
+                            **(
+                                {"prerequisiteFlagKey": c.prerequisite_setting_id}
+                                if c.prerequisite_setting_id
+                                else {}
+                            ),
                         }
                         for c in sorted(rule.conditions, key=lambda x: x.id)
                     ],
@@ -111,8 +138,14 @@ async def generate_config_json(sdk_key_str: str, db: AsyncSession) -> dict | Non
             "conditions": [
                 {
                     "attribute": sc.attribute,
-                    "comparator": sc.comparator.value if hasattr(sc.comparator, 'value') else sc.comparator,
-                    "comparisonValue": sc.comparison_value.get("v") if sc.comparison_value else None,
+                    "comparator": (
+                        sc.comparator.value
+                        if hasattr(sc.comparator, "value")
+                        else sc.comparator
+                    ),
+                    "comparisonValue": (
+                        sc.comparison_value.get("v") if sc.comparison_value else None
+                    ),
                 }
                 for sc in seg.conditions
             ],
@@ -127,7 +160,7 @@ async def generate_config_json(sdk_key_str: str, db: AsyncSession) -> dict | Non
 
 
 def _type_default(setting_type) -> object:
-    t = setting_type.value if hasattr(setting_type, 'value') else setting_type
+    t = setting_type.value if hasattr(setting_type, "value") else setting_type
     if t == "boolean":
         return False
     elif t == "string":

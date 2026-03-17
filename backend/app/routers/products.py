@@ -46,7 +46,9 @@ async def create_product(
     current_user: User = Depends(get_current_user),
 ):
     await _require_org_member(org_id, current_user, db)
-    product = Product(organization_id=org_id, name=body.name, description=body.description)
+    product = Product(
+        organization_id=org_id, name=body.name, description=body.description
+    )
     db.add(product)
     await db.flush()
     return product
@@ -61,7 +63,9 @@ async def get_product(
 ):
     await _require_org_member(org_id, current_user, db)
     result = await db.execute(
-        select(Product).where(Product.id == product_id, Product.organization_id == org_id)
+        select(Product).where(
+            Product.id == product_id, Product.organization_id == org_id
+        )
     )
     product = result.scalar_one_or_none()
     if not product:
@@ -79,7 +83,9 @@ async def update_product(
 ):
     await _require_org_member(org_id, current_user, db)
     result = await db.execute(
-        select(Product).where(Product.id == product_id, Product.organization_id == org_id)
+        select(Product).where(
+            Product.id == product_id, Product.organization_id == org_id
+        )
     )
     product = result.scalar_one_or_none()
     if not product:
@@ -101,7 +107,9 @@ async def delete_product(
 ):
     await _require_org_member(org_id, current_user, db)
     result = await db.execute(
-        select(Product).where(Product.id == product_id, Product.organization_id == org_id)
+        select(Product).where(
+            Product.id == product_id, Product.organization_id == org_id
+        )
     )
     product = result.scalar_one_or_none()
     if not product:
