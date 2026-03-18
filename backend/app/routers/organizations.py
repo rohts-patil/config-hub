@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List, Optional
 
 """Organization router — CRUD + member management."""
 
@@ -38,7 +39,7 @@ async def _get_org_as_member(org_id: str, user: User, db: AsyncSession) -> Organ
     return org
 
 
-@router.get("", response_model=list[OrganizationOut])
+@router.get("", response_model=List[OrganizationOut])
 async def list_organizations(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -101,7 +102,7 @@ async def delete_organization(
     await db.delete(org)
 
 
-@router.get("/{org_id}/members", response_model=list[OrgMemberOut])
+@router.get("/{org_id}/members", response_model=List[OrgMemberOut])
 async def list_members(
     org_id: str,
     db: AsyncSession = Depends(get_db),

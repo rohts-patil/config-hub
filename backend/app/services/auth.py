@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Optional
 
 """Authentication utilities — JWT token creation and password hashing."""
 
@@ -43,7 +44,7 @@ def decode_token(token: str) -> str:
         payload = jwt.decode(
             token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
         )
-        user_id: str | None = payload.get("sub")
+        user_id: Optional[str] = payload.get("sub")
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List, Optional
 
 """Product router — CRUD under an organization."""
 
@@ -27,7 +28,7 @@ async def _require_org_member(org_id: str, user: User, db: AsyncSession):
         raise HTTPException(status_code=403, detail="Not a member of this organization")
 
 
-@router.get("", response_model=list[ProductOut])
+@router.get("", response_model=List[ProductOut])
 async def list_products(
     org_id: str,
     db: AsyncSession = Depends(get_db),

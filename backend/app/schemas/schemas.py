@@ -3,6 +3,7 @@ from __future__ import annotations
 """Pydantic schemas for all API request/response models."""
 
 from datetime import datetime
+from typing import Dict, List, Optional
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -57,7 +58,7 @@ class OrgMemberOut(BaseModel):
     id: str
     user_id: str
     role: str
-    user: UserOut | None = None
+    user: Optional[UserOut] = None
 
     model_config = {"from_attributes": True}
 
@@ -67,19 +68,19 @@ class OrgMemberOut(BaseModel):
 
 class ProductCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
-    description: str | None = None
+    description: Optional[str] = None
 
 
 class ProductUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=255)
-    description: str | None = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = None
 
 
 class ProductOut(BaseModel):
     id: str
     organization_id: str
     name: str
-    description: str | None
+    description: Optional[str]
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -93,8 +94,8 @@ class ConfigCreate(BaseModel):
 
 
 class ConfigUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=255)
-    order: int | None = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    order: Optional[int] = None
 
 
 class ConfigOut(BaseModel):
@@ -116,9 +117,9 @@ class EnvironmentCreate(BaseModel):
 
 
 class EnvironmentUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=255)
-    color: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
-    order: int | None = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    color: Optional[str] = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    order: Optional[int] = None
 
 
 class EnvironmentOut(BaseModel):
@@ -138,14 +139,14 @@ class EnvironmentOut(BaseModel):
 class SettingCreate(BaseModel):
     key: str = Field(min_length=1, max_length=255, pattern=r"^[a-zA-Z0-9_\-\.]+$")
     name: str = Field(min_length=1, max_length=255)
-    hint: str | None = None
+    hint: Optional[str] = None
     setting_type: str = Field(default="boolean")  # boolean, string, int, double
 
 
 class SettingUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=255)
-    hint: str | None = None
-    order: int | None = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    hint: Optional[str] = None
+    order: Optional[int] = None
 
 
 class SettingOut(BaseModel):
@@ -153,7 +154,7 @@ class SettingOut(BaseModel):
     config_id: str
     key: str
     name: str
-    hint: str | None
+    hint: Optional[str]
     setting_type: str
     order: int
     created_at: datetime
@@ -166,16 +167,16 @@ class SettingOut(BaseModel):
 
 class ConditionIn(BaseModel):
     condition_type: str = "user"  # user, flag, segment
-    attribute: str | None = None
+    attribute: Optional[str] = None
     comparator: str
     comparison_value: dict
-    segment_id: str | None = None
-    prerequisite_setting_id: str | None = None
+    segment_id: Optional[str] = None
+    prerequisite_setting_id: Optional[str] = None
 
 
 class TargetingRuleIn(BaseModel):
     served_value: dict  # {"v": true/false/"str"/123}
-    conditions: list[ConditionIn]
+    conditions: List[ConditionIn]
     order: int = 0
 
 
@@ -187,18 +188,18 @@ class PercentageOptionIn(BaseModel):
 
 class SettingValueUpdate(BaseModel):
     default_value: dict  # {"v": ...}
-    targeting_rules: list[TargetingRuleIn] = []
-    percentage_options: list[PercentageOptionIn] = []
+    targeting_rules: List[TargetingRuleIn] = []
+    percentage_options: List[PercentageOptionIn] = []
 
 
 class ConditionOut(BaseModel):
     id: str
     condition_type: str
-    attribute: str | None
+    attribute: Optional[str]
     comparator: str
     comparison_value: dict
-    segment_id: str | None
-    prerequisite_setting_id: str | None
+    segment_id: Optional[str]
+    prerequisite_setting_id: Optional[str]
 
     model_config = {"from_attributes": True}
 
@@ -207,7 +208,7 @@ class TargetingRuleOut(BaseModel):
     id: str
     served_value: dict
     order: int
-    conditions: list[ConditionOut] = []
+    conditions: List[ConditionOut] = []
 
     model_config = {"from_attributes": True}
 
@@ -225,10 +226,10 @@ class SettingValueOut(BaseModel):
     id: str
     setting_id: str
     environment_id: str
-    default_value: dict | None
+    default_value: Optional[dict]
     updated_at: datetime
-    targeting_rules: list[TargetingRuleOut] = []
-    percentage_options: list[PercentageOptionOut] = []
+    targeting_rules: List[TargetingRuleOut] = []
+    percentage_options: List[PercentageOptionOut] = []
 
     model_config = {"from_attributes": True}
 
@@ -244,14 +245,14 @@ class SegmentConditionIn(BaseModel):
 
 class SegmentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
-    description: str | None = None
-    conditions: list[SegmentConditionIn] = []
+    description: Optional[str] = None
+    conditions: List[SegmentConditionIn] = []
 
 
 class SegmentUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=255)
-    description: str | None = None
-    conditions: list[SegmentConditionIn] | None = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    conditions: Optional[List[SegmentConditionIn]] = None
 
 
 class SegmentConditionOut(BaseModel):
@@ -267,9 +268,9 @@ class SegmentOut(BaseModel):
     id: str
     product_id: str
     name: str
-    description: str | None
+    description: Optional[str]
     created_at: datetime
-    conditions: list[SegmentConditionOut] = []
+    conditions: List[SegmentConditionOut] = []
 
     model_config = {"from_attributes": True}
 
@@ -294,13 +295,13 @@ class SDKKeyOut(BaseModel):
 class AuditLogOut(BaseModel):
     id: str
     organization_id: str
-    user_id: str | None
+    user_id: Optional[str]
     action: str
     entity_type: str
-    entity_id: str | None
-    old_value: dict | None
-    new_value: dict | None
-    reason: str | None
+    entity_id: Optional[str]
+    old_value: Optional[dict]
+    new_value: Optional[dict]
+    reason: Optional[str]
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -311,24 +312,24 @@ class AuditLogOut(BaseModel):
 
 class WebhookCreate(BaseModel):
     url: str = Field(max_length=2048)
-    config_id: str | None = None
-    environment_id: str | None = None
+    config_id: Optional[str] = None
+    environment_id: Optional[str] = None
     enabled: bool = True
 
 
 class WebhookUpdate(BaseModel):
-    url: str | None = Field(default=None, max_length=2048)
-    config_id: str | None = None
-    environment_id: str | None = None
-    enabled: bool | None = None
+    url: Optional[str] = Field(default=None, max_length=2048)
+    config_id: Optional[str] = None
+    environment_id: Optional[str] = None
+    enabled: Optional[bool] = None
 
 
 class WebhookOut(BaseModel):
     id: str
     product_id: str
     url: str
-    config_id: str | None
-    environment_id: str | None
+    config_id: Optional[str]
+    environment_id: Optional[str]
     enabled: bool
     created_at: datetime
 

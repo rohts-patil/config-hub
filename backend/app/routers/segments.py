@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List, Optional
 
 """Segment router — CRUD with conditions."""
 
@@ -17,7 +18,7 @@ from app.services.auth import get_current_user
 router = APIRouter(prefix="/api/v1/products/{product_id}/segments", tags=["Segments"])
 
 
-@router.get("", response_model=list[SegmentOut])
+@router.get("", response_model=List[SegmentOut])
 async def list_segments(
     product_id: str,
     db: AsyncSession = Depends(get_db),

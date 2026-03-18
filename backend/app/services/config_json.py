@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Optional
 
 """Config JSON generator for SDK consumption."""
 
@@ -13,7 +14,7 @@ from app.models.segment import Segment, SegmentCondition
 from app.models.permission import SDKKey
 
 
-async def generate_config_json(sdk_key_str: str, db: AsyncSession) -> dict | None:
+async def generate_config_json(sdk_key_str: str, db: AsyncSession) -> Optional[dict]:
     """Generate the config JSON blob that SDKs fetch and cache locally.
 
     Returns None if the SDK key is invalid or revoked.

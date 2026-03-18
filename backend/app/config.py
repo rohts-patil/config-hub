@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List
 
 """Application configuration via environment variables."""
 
@@ -17,7 +18,7 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "FlagSmith"
     DEBUG: bool = True
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

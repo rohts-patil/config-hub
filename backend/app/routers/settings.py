@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List, Optional
 
 """Setting (feature flag) router — CRUD + value/targeting-rule management."""
 
@@ -30,7 +31,7 @@ from app.services.auth import get_current_user
 router = APIRouter(prefix="/api/v1/configs/{config_id}/settings", tags=["Settings"])
 
 
-@router.get("", response_model=list[SettingOut])
+@router.get("", response_model=List[SettingOut])
 async def list_settings(
     config_id: str,
     db: AsyncSession = Depends(get_db),

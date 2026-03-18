@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List, Optional
 
 """Config and Environment routers — CRUD under a product."""
 
@@ -31,7 +32,7 @@ config_router = APIRouter(
 )
 
 
-@config_router.get("", response_model=list[ConfigOut])
+@config_router.get("", response_model=List[ConfigOut])
 async def list_configs(
     product_id: str,
     db: AsyncSession = Depends(get_db),
@@ -114,7 +115,7 @@ env_router = APIRouter(
 )
 
 
-@env_router.get("", response_model=list[EnvironmentOut])
+@env_router.get("", response_model=List[EnvironmentOut])
 async def list_environments(
     product_id: str,
     db: AsyncSession = Depends(get_db),
@@ -203,7 +204,7 @@ sdk_key_router = APIRouter(
 )
 
 
-@sdk_key_router.get("", response_model=list[SDKKeyOut])
+@sdk_key_router.get("", response_model=List[SDKKeyOut])
 async def list_sdk_keys(
     product_id: str,
     db: AsyncSession = Depends(get_db),
