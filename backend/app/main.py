@@ -23,6 +23,10 @@ from app.routers import (
     settings as settings_router,
     segments,
     sdk,
+    audit_log,
+    webhooks,
+    tags,
+    permissions,
 )
 
 
@@ -59,6 +63,10 @@ app.include_router(configs.sdk_key_router)
 app.include_router(settings_router.router)
 app.include_router(segments.router)
 app.include_router(sdk.router)
+app.include_router(audit_log.router)
+app.include_router(webhooks.router)
+app.include_router(tags.router)
+app.include_router(permissions.router)
 
 
 @app.get("/api/v1/health", tags=["Health"])

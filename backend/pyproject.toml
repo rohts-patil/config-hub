@@ -2,7 +2,7 @@
 name = "flagsmith-backend"
 version = "0.1.0"
 description = "ConfigCat replica — Feature flag management backend"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 dependencies = [
     "fastapi[standard]>=0.115.0",
     "uvicorn[standard]>=0.30.0",
