@@ -12,6 +12,8 @@ from app.models.user import User
 from app.models.permission import Webhook
 from app.schemas.schemas import WebhookCreate, WebhookUpdate, WebhookOut
 from app.services.auth import get_current_user
+from app.services.audit import get_org_id_for_product, record_audit
+from app.services.authz import require_product_member
 
 router = APIRouter(
     prefix="/api/v1/products/{product_id}/webhooks", tags=["Webhooks"]
@@ -24,6 +26,7 @@ async def list_webhooks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     result = await db.execute(
         select(Webhook).where(Webhook.product_id == product_id)
     )
@@ -37,6 +40,7 @@ async def create_webhook(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     webhook = Webhook(
         product_id=product_id,
         url=body.url,
@@ -46,6 +50,22 @@ async def create_webhook(
     )
     db.add(webhook)
     await db.flush()
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db,
+            org_id,
+            current_user.id,
+            "created",
+            "webhook",
+            entity_id=webhook.id,
+            new_value={
+                "url": webhook.url,
+                "config_id": webhook.config_id,
+                "environment_id": webhook.environment_id,
+                "enabled": webhook.enabled,
+            },
+        )
     return webhook
 
 
@@ -56,6 +76,7 @@ async def get_webhook(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     result = await db.execute(
         select(Webhook).where(
             Webhook.id == webhook_id, Webhook.product_id == product_id
@@ -75,6 +96,7 @@ async def update_webhook(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     result = await db.execute(
         select(Webhook).where(
             Webhook.id == webhook_id, Webhook.product_id == product_id
@@ -83,6 +105,12 @@ async def update_webhook(
     webhook = result.scalar_one_or_none()
     if not webhook:
         raise HTTPException(status_code=404, detail="Webhook not found")
+    old_value = {
+        "url": webhook.url,
+        "config_id": webhook.config_id,
+        "environment_id": webhook.environment_id,
+        "enabled": webhook.enabled,
+    }
     if body.url is not None:
         webhook.url = body.url
     if body.config_id is not None:
@@ -92,6 +120,23 @@ async def update_webhook(
     if body.enabled is not None:
         webhook.enabled = body.enabled
     await db.flush()
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db,
+            org_id,
+            current_user.id,
+            "updated",
+            "webhook",
+            entity_id=webhook.id,
+            old_value=old_value,
+            new_value={
+                "url": webhook.url,
+                "config_id": webhook.config_id,
+                "environment_id": webhook.environment_id,
+                "enabled": webhook.enabled,
+            },
+        )
     return webhook
 
 
@@ -102,6 +147,7 @@ async def delete_webhook(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     result = await db.execute(
         select(Webhook).where(
             Webhook.id == webhook_id, Webhook.product_id == product_id
@@ -110,5 +156,20 @@ async def delete_webhook(
     webhook = result.scalar_one_or_none()
     if not webhook:
         raise HTTPException(status_code=404, detail="Webhook not found")
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db,
+            org_id,
+            current_user.id,
+            "deleted",
+            "webhook",
+            entity_id=webhook.id,
+            old_value={
+                "url": webhook.url,
+                "config_id": webhook.config_id,
+                "environment_id": webhook.environment_id,
+                "enabled": webhook.enabled,
+            },
+        )
     await db.delete(webhook)
-

@@ -5,7 +5,7 @@ from typing import List, Optional
 
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +24,8 @@ from app.schemas.schemas import (
     SDKKeyOut,
 )
 from app.services.auth import get_current_user
+from app.services.audit import record_audit, get_org_id_for_product
+from app.services.authz import require_config_member, require_product_member
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -38,6 +40,7 @@ async def list_configs(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     result = await db.execute(
         select(Config).where(Config.product_id == product_id).order_by(Config.order)
     )
@@ -51,6 +54,7 @@ async def create_config(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     config = Config(product_id=product_id, name=body.name)
     db.add(config)
     await db.flush()
@@ -67,7 +71,25 @@ async def create_config(
         )
         db.add(sdk_key)
     await db.flush()
+
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db, org_id, current_user.id, "created", "config",
+            entity_id=config.id, new_value={"name": config.name},
+        )
+
     return config
+
+
+@config_router.get("/{config_id}", response_model=ConfigOut)
+async def get_config(
+    product_id: str,
+    config_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await require_config_member(db, config_id, current_user, product_id=product_id)
 
 
 @config_router.patch("/{config_id}", response_model=ConfigOut)
@@ -78,17 +100,22 @@ async def update_config(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Config).where(Config.id == config_id, Config.product_id == product_id)
-    )
-    config = result.scalar_one_or_none()
-    if not config:
-        raise HTTPException(status_code=404, detail="Config not found")
+    config = await require_config_member(db, config_id, current_user, product_id=product_id)
+    old_value = {"name": config.name, "order": config.order}
     if body.name is not None:
         config.name = body.name
     if body.order is not None:
         config.order = body.order
     await db.flush()
+
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db, org_id, current_user.id, "updated", "config",
+            entity_id=config.id, old_value=old_value,
+            new_value={"name": config.name, "order": config.order},
+        )
+
     return config
 
 
@@ -99,12 +126,15 @@ async def delete_config(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Config).where(Config.id == config_id, Config.product_id == product_id)
-    )
-    config = result.scalar_one_or_none()
-    if not config:
-        raise HTTPException(status_code=404, detail="Config not found")
+    config = await require_config_member(db, config_id, current_user, product_id=product_id)
+
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db, org_id, current_user.id, "deleted", "config",
+            entity_id=config.id, old_value={"name": config.name},
+        )
+
     await db.delete(config)
 
 
@@ -121,6 +151,7 @@ async def list_environments(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     result = await db.execute(
         select(Environment)
         .where(Environment.product_id == product_id)
@@ -136,6 +167,7 @@ async def create_environment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     env = Environment(product_id=product_id, name=body.name, color=body.color)
     db.add(env)
     await db.flush()
@@ -150,6 +182,18 @@ async def create_environment(
         )
         db.add(sdk_key)
     await db.flush()
+
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db,
+            org_id,
+            current_user.id,
+            "created",
+            "environment",
+            entity_id=env.id,
+            new_value={"name": env.name, "color": env.color},
+        )
     return env
 
 
@@ -161,6 +205,7 @@ async def update_environment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     result = await db.execute(
         select(Environment).where(
             Environment.id == env_id, Environment.product_id == product_id
@@ -169,6 +214,7 @@ async def update_environment(
     env = result.scalar_one_or_none()
     if not env:
         raise HTTPException(status_code=404, detail="Environment not found")
+    old_value = {"name": env.name, "color": env.color, "order": env.order}
     if body.name is not None:
         env.name = body.name
     if body.color is not None:
@@ -176,6 +222,19 @@ async def update_environment(
     if body.order is not None:
         env.order = body.order
     await db.flush()
+
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db,
+            org_id,
+            current_user.id,
+            "updated",
+            "environment",
+            entity_id=env.id,
+            old_value=old_value,
+            new_value={"name": env.name, "color": env.color, "order": env.order},
+        )
     return env
 
 
@@ -186,6 +245,7 @@ async def delete_environment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     result = await db.execute(
         select(Environment).where(
             Environment.id == env_id, Environment.product_id == product_id
@@ -194,6 +254,18 @@ async def delete_environment(
     env = result.scalar_one_or_none()
     if not env:
         raise HTTPException(status_code=404, detail="Environment not found")
+
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db,
+            org_id,
+            current_user.id,
+            "deleted",
+            "environment",
+            entity_id=env.id,
+            old_value={"name": env.name, "color": env.color},
+        )
     await db.delete(env)
 
 
@@ -207,10 +279,13 @@ sdk_key_router = APIRouter(
 @sdk_key_router.get("", response_model=List[SDKKeyOut])
 async def list_sdk_keys(
     product_id: str,
+    config_id: Optional[str] = Query(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(SDKKey).join(Config).where(Config.product_id == product_id)
-    )
+    await require_product_member(db, product_id, current_user)
+    query = select(SDKKey).join(Config).where(Config.product_id == product_id)
+    if config_id:
+        query = query.where(SDKKey.config_id == config_id)
+    result = await db.execute(query.order_by(SDKKey.created_at.desc()))
     return result.scalars().all()

@@ -1,0 +1,26 @@
+{
+  "name": "@confighub/sdk-js",
+  "version": "0.1.0",
+  "description": "ConfigHub JavaScript/TypeScript SDK — client-side feature flag evaluation",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "feature-flag",
+    "config",
+    "confighub",
+    "remote-config"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^5.4.0"
+  }
+}

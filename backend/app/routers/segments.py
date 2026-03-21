@@ -14,6 +14,8 @@ from app.models.segment import Segment, SegmentCondition
 from app.models.targeting import Comparator
 from app.schemas.schemas import SegmentCreate, SegmentUpdate, SegmentOut
 from app.services.auth import get_current_user
+from app.services.audit import get_org_id_for_product, record_audit
+from app.services.authz import require_product_member
 
 router = APIRouter(prefix="/api/v1/products/{product_id}/segments", tags=["Segments"])
 
@@ -24,6 +26,7 @@ async def list_segments(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     result = await db.execute(
         select(Segment)
         .options(selectinload(Segment.conditions))
@@ -39,6 +42,7 @@ async def create_segment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     segment = Segment(
         product_id=product_id, name=body.name, description=body.description
     )
@@ -61,6 +65,17 @@ async def create_segment(
         db.add(cond)
 
     await db.flush()
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db,
+            org_id,
+            current_user.id,
+            "created",
+            "segment",
+            entity_id=segment.id,
+            new_value={"name": segment.name, "description": segment.description},
+        )
     return await _load_segment(segment.id, db)
 
 
@@ -71,7 +86,11 @@ async def get_segment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await _load_segment(segment_id, db)
+    await require_product_member(db, product_id, current_user)
+    segment = await _load_segment(segment_id, db)
+    if segment.product_id != product_id:
+        raise HTTPException(status_code=404, detail="Segment not found")
+    return segment
 
 
 @router.patch("/{segment_id}", response_model=SegmentOut)
@@ -82,7 +101,11 @@ async def update_segment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_product_member(db, product_id, current_user)
     segment = await _load_segment(segment_id, db)
+    if segment.product_id != product_id:
+        raise HTTPException(status_code=404, detail="Segment not found")
+    old_value = {"name": segment.name, "description": segment.description}
     if body.name is not None:
         segment.name = body.name
     if body.description is not None:
@@ -109,6 +132,18 @@ async def update_segment(
             db.add(cond)
 
     await db.flush()
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db,
+            org_id,
+            current_user.id,
+            "updated",
+            "segment",
+            entity_id=segment.id,
+            old_value=old_value,
+            new_value={"name": segment.name, "description": segment.description},
+        )
     return await _load_segment(segment_id, db)
 
 
@@ -119,10 +154,24 @@ async def delete_segment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Segment).where(Segment.id == segment_id))
+    await require_product_member(db, product_id, current_user)
+    result = await db.execute(
+        select(Segment).where(Segment.id == segment_id, Segment.product_id == product_id)
+    )
     segment = result.scalar_one_or_none()
     if not segment:
         raise HTTPException(status_code=404, detail="Segment not found")
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db,
+            org_id,
+            current_user.id,
+            "deleted",
+            "segment",
+            entity_id=segment.id,
+            old_value={"name": segment.name, "description": segment.description},
+        )
     await db.delete(segment)
 
 

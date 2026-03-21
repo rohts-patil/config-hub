@@ -13,6 +13,7 @@ from app.models.organization import OrganizationMember
 from app.models.product import Product
 from app.schemas.schemas import ProductCreate, ProductUpdate, ProductOut
 from app.services.auth import get_current_user
+from app.services.audit import record_audit
 
 router = APIRouter(prefix="/api/v1/organizations/{org_id}/products", tags=["Products"])
 
@@ -52,6 +53,15 @@ async def create_product(
     )
     db.add(product)
     await db.flush()
+    await record_audit(
+        db,
+        org_id,
+        current_user.id,
+        "created",
+        "product",
+        entity_id=product.id,
+        new_value={"name": product.name, "description": product.description},
+    )
     return product
 
 
@@ -91,11 +101,22 @@ async def update_product(
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    old_value = {"name": product.name, "description": product.description}
     if body.name is not None:
         product.name = body.name
     if body.description is not None:
         product.description = body.description
     await db.flush()
+    await record_audit(
+        db,
+        org_id,
+        current_user.id,
+        "updated",
+        "product",
+        entity_id=product.id,
+        old_value=old_value,
+        new_value={"name": product.name, "description": product.description},
+    )
     return product
 
 
@@ -115,4 +136,13 @@ async def delete_product(
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    await record_audit(
+        db,
+        org_id,
+        current_user.id,
+        "deleted",
+        "product",
+        entity_id=product.id,
+        old_value={"name": product.name, "description": product.description},
+    )
     await db.delete(product)

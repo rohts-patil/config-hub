@@ -1,0 +1,53 @@
+services:
+  # ── PostgreSQL ──
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: confighub
+      POSTGRES_PASSWORD: confighub
+      POSTGRES_DB: confighub
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U confighub"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── FastAPI Backend ──
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://confighub:confighub@db:5432/confighub
+      JWT_SECRET_KEY: local-dev-secret-change-in-prod
+      DEBUG: "false"
+      CORS_ORIGINS: '["http://localhost:3000"]'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── Next.js Frontend ──
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # This is baked into the JS bundle at build time.
+        # The browser will call this URL, so it must be reachable
+        # from the host machine — NOT the docker network name.
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+

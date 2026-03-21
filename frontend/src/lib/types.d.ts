@@ -1,0 +1,187 @@
+// ── Auth ──
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  created_at: string;
+}
+
+// ── Organization ──
+interface Organization {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+interface OrgMember {
+  id: string;
+  user_id: string;
+  role: string;
+  user?: User;
+}
+
+// ── Product ──
+interface Product {
+  id: string;
+  organization_id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+}
+
+// ── Config ──
+interface Config {
+  id: string;
+  product_id: string;
+  name: string;
+  description?: string;
+  order: number;
+  created_at: string;
+}
+
+// ── Environment ──
+interface Environment {
+  id: string;
+  product_id: string;
+  name: string;
+  color: string;
+  order: number;
+  created_at: string;
+}
+
+// ── Setting (Feature Flag) ──
+interface Setting {
+  id: string;
+  config_id: string;
+  key: string;
+  name: string;
+  setting_type: string;
+  hint?: string;
+  order: number;
+  created_at: string;
+}
+
+// ── Setting Value + Targeting ──
+interface Condition {
+  id: string;
+  condition_type: string;
+  attribute?: string;
+  comparator: string;
+  comparison_value: Record<string, unknown>;
+  segment_id?: string;
+  prerequisite_setting_id?: string;
+}
+
+interface TargetingRule {
+  id: string;
+  served_value: Record<string, unknown>;
+  order: number;
+  conditions: Condition[];
+}
+
+interface PercentageOption {
+  id: string;
+  percentage: number;
+  value: Record<string, unknown>;
+  order: number;
+}
+
+interface SettingValue {
+  id: string;
+  setting_id: string;
+  environment_id: string;
+  default_value: Record<string, unknown>;
+  targeting_rules: TargetingRule[];
+  percentage_options: PercentageOption[];
+}
+
+interface ConditionIn {
+  condition_type?: string;
+  attribute?: string;
+  comparator: string;
+  comparison_value: Record<string, unknown>;
+  segment_id?: string;
+  prerequisite_setting_id?: string;
+}
+
+interface TargetingRuleIn {
+  served_value: Record<string, unknown>;
+  conditions: ConditionIn[];
+  order?: number;
+}
+
+interface PercentageOptionIn {
+  percentage: number;
+  value: Record<string, unknown>;
+  order?: number;
+}
+
+interface SettingValueUpdate {
+  default_value: Record<string, unknown>;
+  targeting_rules: TargetingRuleIn[];
+  percentage_options: PercentageOptionIn[];
+}
+
+// ── Segment ──
+interface SegmentCondition {
+  attribute: string;
+  comparator: string;
+  comparison_value: Record<string, unknown>;
+}
+
+interface Segment {
+  id: string;
+  product_id: string;
+  name: string;
+  description?: string;
+  conditions: SegmentCondition[];
+}
+
+interface SegmentCreate {
+  name: string;
+  description?: string;
+  conditions: SegmentCondition[];
+}
+
+// ── Tag ──
+interface Tag {
+  id: string;
+  product_id: string;
+  name: string;
+  color: string;
+}
+
+// ── SDK Key ──
+interface SDKKey {
+  id: string;
+  config_id: string;
+  environment_id: string;
+  key: string;
+  revoked: boolean;
+  created_at: string;
+}
+
+// ── Audit Log ──
+interface AuditLogEntry {
+  id: string;
+  organization_id: string;
+  user_id?: string;
+  action: string;
+  entity_type: string;
+  entity_id?: string;
+  old_value?: Record<string, unknown>;
+  new_value?: Record<string, unknown>;
+  reason?: string;
+  created_at: string;
+}
+
+// ── Webhook ──
+interface Webhook {
+  id: string;
+  product_id: string;
+  url: string;
+  config_id?: string;
+  environment_id?: string;
+  enabled: boolean;
+  created_at: string;
+}

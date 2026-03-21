@@ -27,6 +27,9 @@ from app.schemas.schemas import (
     SettingValueOut,
 )
 from app.services.auth import get_current_user
+from app.services.audit import record_audit, get_org_id_for_config
+from app.services.authz import require_config_member, require_environment_member
+from app.services.webhook import dispatch_webhooks
 
 router = APIRouter(prefix="/api/v1/configs/{config_id}/settings", tags=["Settings"])
 
@@ -37,6 +40,7 @@ async def list_settings(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_config_member(db, config_id, current_user)
     result = await db.execute(
         select(Setting).where(Setting.config_id == config_id).order_by(Setting.order)
     )
@@ -50,6 +54,7 @@ async def create_setting(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    config_obj = await require_config_member(db, config_id, current_user)
     # Validate setting type
     try:
         s_type = SettingType(body.setting_type)
@@ -79,23 +84,28 @@ async def create_setting(
     await db.flush()
 
     # Auto-create SettingValues for all environments in the same product
-    from app.models.config import Config
-
-    cfg = await db.execute(select(Config).where(Config.id == config_id))
-    config_obj = cfg.scalar_one_or_none()
-    if config_obj:
-        envs = await db.execute(
-            select(Environment).where(Environment.product_id == config_obj.product_id)
+    envs = await db.execute(
+        select(Environment).where(Environment.product_id == config_obj.product_id)
+    )
+    default = _default_for_type(s_type)
+    for env in envs.scalars().all():
+        sv = SettingValue(
+            setting_id=setting.id,
+            environment_id=env.id,
+            default_value={"v": default},
         )
-        default = _default_for_type(s_type)
-        for env in envs.scalars().all():
-            sv = SettingValue(
-                setting_id=setting.id,
-                environment_id=env.id,
-                default_value={"v": default},
-            )
-            db.add(sv)
+        db.add(sv)
     await db.flush()
+
+    # Audit log
+    org_id = await get_org_id_for_config(db, config_id)
+    if org_id:
+        await record_audit(
+            db, org_id, current_user.id, "created", "setting",
+            entity_id=setting.id,
+            new_value={"key": setting.key, "name": setting.name, "type": s_type.value},
+        )
+
     return setting
 
 
@@ -106,6 +116,7 @@ async def get_setting(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_config_member(db, config_id, current_user)
     result = await db.execute(
         select(Setting).where(Setting.id == setting_id, Setting.config_id == config_id)
     )
@@ -123,12 +134,15 @@ async def update_setting(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_config_member(db, config_id, current_user)
     result = await db.execute(
         select(Setting).where(Setting.id == setting_id, Setting.config_id == config_id)
     )
     setting = result.scalar_one_or_none()
     if not setting:
         raise HTTPException(status_code=404, detail="Setting not found")
+
+    old_value = {"name": setting.name, "hint": setting.hint, "order": setting.order}
     if body.name is not None:
         setting.name = body.name
     if body.hint is not None:
@@ -136,6 +150,16 @@ async def update_setting(
     if body.order is not None:
         setting.order = body.order
     await db.flush()
+
+    org_id = await get_org_id_for_config(db, config_id)
+    if org_id:
+        await record_audit(
+            db, org_id, current_user.id, "updated", "setting",
+            entity_id=setting.id,
+            old_value=old_value,
+            new_value={"name": setting.name, "hint": setting.hint, "order": setting.order},
+        )
+
     return setting
 
 
@@ -146,12 +170,22 @@ async def delete_setting(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await require_config_member(db, config_id, current_user)
     result = await db.execute(
         select(Setting).where(Setting.id == setting_id, Setting.config_id == config_id)
     )
     setting = result.scalar_one_or_none()
     if not setting:
         raise HTTPException(status_code=404, detail="Setting not found")
+
+    org_id = await get_org_id_for_config(db, config_id)
+    if org_id:
+        await record_audit(
+            db, org_id, current_user.id, "deleted", "setting",
+            entity_id=setting.id,
+            old_value={"key": setting.key, "name": setting.name},
+        )
+
     await db.delete(setting)
 
 
@@ -166,6 +200,13 @@ async def get_setting_value(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    config_obj = await require_config_member(db, config_id, current_user)
+    await require_environment_member(
+        db,
+        env_id,
+        current_user,
+        product_id=config_obj.product_id,
+    )
     sv = await _load_setting_value(setting_id, env_id, db)
     return sv
 
@@ -179,7 +220,16 @@ async def update_setting_value(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    config_obj = await require_config_member(db, config_id, current_user)
+    await require_environment_member(
+        db,
+        env_id,
+        current_user,
+        product_id=config_obj.product_id,
+    )
     sv = await _load_setting_value(setting_id, env_id, db)
+
+    old_default = sv.default_value
 
     # Update default value
     sv.default_value = body.default_value
@@ -239,6 +289,26 @@ async def update_setting_value(
         db.add(pct)
 
     await db.flush()
+
+    # Audit log + webhooks
+    org_id = await get_org_id_for_config(db, config_id)
+    if org_id:
+        await record_audit(
+            db, org_id, current_user.id, "updated", "setting_value",
+            entity_id=sv.id,
+            old_value={"default_value": old_default},
+            new_value={"default_value": body.default_value},
+        )
+
+    # Resolve product_id for webhooks
+    await dispatch_webhooks(
+        db,
+        config_obj.product_id,
+        "setting.value_updated",
+        {"setting_id": setting_id, "environment_id": env_id},
+        config_id=config_id,
+        environment_id=env_id,
+    )
 
     # Reload
     return await _load_setting_value(setting_id, env_id, db)
