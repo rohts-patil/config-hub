@@ -125,7 +125,6 @@ def _condition_matches(
     return _compare(comparator, user_value, comparison_value)
 
 
-
 def _compare(comparator: str, user_value: Any, comparison_value: Any) -> bool:
     """Apply a comparator to user_value vs comparison_value."""
     uv = str(user_value)
@@ -159,9 +158,12 @@ def _compare(comparator: str, user_value: Any, comparison_value: Any) -> bool:
 
     # ── Numeric comparators ──
     elif comparator in (
-        "numberEquals", "numberNotEquals",
-        "numberLess", "numberLessOrEquals",
-        "numberGreater", "numberGreaterOrEquals",
+        "numberEquals",
+        "numberNotEquals",
+        "numberLess",
+        "numberLessOrEquals",
+        "numberGreater",
+        "numberGreaterOrEquals",
     ):
         try:
             nv = float(user_value)
@@ -183,9 +185,12 @@ def _compare(comparator: str, user_value: Any, comparison_value: Any) -> bool:
 
     # ── Semver comparators ──
     elif comparator in (
-        "semverLess", "semverLessOrEquals",
-        "semverGreater", "semverGreaterOrEquals",
-        "semverEquals", "semverNotEquals",
+        "semverLess",
+        "semverLessOrEquals",
+        "semverGreater",
+        "semverGreaterOrEquals",
+        "semverEquals",
+        "semverNotEquals",
     ):
         uv_parts = _parse_semver(uv)
         cv_parts = _parse_semver(cv)
@@ -231,12 +236,20 @@ def _compare(comparator: str, user_value: Any, comparison_value: Any) -> bool:
     # ── Array comparators ──
     elif comparator == "arrayContains":
         if isinstance(user_value, list):
-            items = comparison_value if isinstance(comparison_value, list) else [comparison_value]
+            items = (
+                comparison_value
+                if isinstance(comparison_value, list)
+                else [comparison_value]
+            )
             return all(str(i) in [str(v) for v in user_value] for i in items)
         return False
     elif comparator == "arrayNotContains":
         if isinstance(user_value, list):
-            items = comparison_value if isinstance(comparison_value, list) else [comparison_value]
+            items = (
+                comparison_value
+                if isinstance(comparison_value, list)
+                else [comparison_value]
+            )
             return not any(str(i) in [str(v) for v in user_value] for i in items)
         return False
 

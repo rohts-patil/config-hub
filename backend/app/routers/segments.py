@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import List
 
 """Segment router — CRUD with conditions."""
 
@@ -156,7 +156,9 @@ async def delete_segment(
 ):
     await require_product_member(db, product_id, current_user)
     result = await db.execute(
-        select(Segment).where(Segment.id == segment_id, Segment.product_id == product_id)
+        select(Segment).where(
+            Segment.id == segment_id, Segment.product_id == product_id
+        )
     )
     segment = result.scalar_one_or_none()
     if not segment:

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import List
 
 """Product router — CRUD under an organization."""
 

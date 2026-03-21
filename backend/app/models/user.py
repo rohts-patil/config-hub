@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import TYPE_CHECKING, List
 
 """User model."""
 
@@ -10,6 +10,10 @@ from sqlalchemy import String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.organization import OrganizationMember
+    from app.models.permission import AuditLog
 
 
 class User(Base):
@@ -31,6 +35,4 @@ class User(Base):
     memberships: Mapped[List["OrganizationMember"]] = relationship(
         back_populates="user"
     )  # noqa: F821
-    audit_logs: Mapped[List["AuditLog"]] = relationship(
-        back_populates="user"
-    )  # noqa: F821
+    audit_logs: Mapped[List["AuditLog"]] = relationship(back_populates="user")  # noqa: F821

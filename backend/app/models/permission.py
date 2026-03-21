@@ -1,15 +1,23 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 """Permission, Tag, SDKKey, AuditLog, Webhook models."""
 
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Integer, DateTime, Boolean, ForeignKey, JSON, Text
+from sqlalchemy import String, DateTime, Boolean, ForeignKey, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.config import Config
+    from app.models.environment import Environment
+    from app.models.organization import Organization
+    from app.models.product import Product
+    from app.models.setting import Setting
+    from app.models.user import User
 
 
 class PermissionGroup(Base):
@@ -25,9 +33,7 @@ class PermissionGroup(Base):
     permissions: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     # permissions example: {"canManageFlags": true, "canManageEnvironments": false, ...}
 
-    product: Mapped["Product"] = relationship(
-        back_populates="permission_groups"
-    )  # noqa: F821
+    product: Mapped["Product"] = relationship(back_populates="permission_groups")  # noqa: F821
 
 
 class Tag(Base):
@@ -86,9 +92,7 @@ class SDKKey(Base):
     )
 
     config: Mapped["Config"] = relationship(back_populates="sdk_keys")  # noqa: F821
-    environment: Mapped["Environment"] = relationship(
-        back_populates="sdk_keys"
-    )  # noqa: F821
+    environment: Mapped["Environment"] = relationship(back_populates="sdk_keys")  # noqa: F821
 
 
 class AuditLog(Base):
@@ -117,9 +121,7 @@ class AuditLog(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )
 
-    organization: Mapped["Organization"] = relationship(
-        back_populates="audit_logs"
-    )  # noqa: F821
+    organization: Mapped["Organization"] = relationship(back_populates="audit_logs")  # noqa: F821
     user: Mapped["User"] = relationship(back_populates="audit_logs")  # noqa: F821
 
 

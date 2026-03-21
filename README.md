@@ -1,13 +1,13 @@
 # ConfigHub
 
-ConfigHub is a feature flag and remote configuration platform built as a small monorepo. It includes a FastAPI backend, a Next.js admin dashboard, and a JavaScript/TypeScript SDK for client-side flag evaluation.
+ConfigHub is a feature flag and remote configuration platform built as a small monorepo. It includes a FastAPI backend, a Next.js admin dashboard, and SDKs for JavaScript/TypeScript and Python.
 
 The project is designed to cover the full workflow:
 - manage organizations, products, configs, and environments
 - create flags and remote config values
 - define targeting rules and segments
 - expose a public `config.json` endpoint for SDK consumers
-- evaluate flags client-side with a lightweight JS SDK
+- evaluate flags client-side with lightweight JS and Python SDKs
 - track changes with audit logs and webhook integrations
 
 ## What's Inside
@@ -25,6 +25,7 @@ The project is designed to cover the full workflow:
 
 ### SDK
 - package name: `@confighub/sdk-js`
+- package name: `confighub-sdk`
 - fetches config JSON from the backend
 - caches config locally
 - supports polling and ETag-based refreshes
@@ -34,7 +35,7 @@ The project is designed to cover the full workflow:
 
 - Backend: FastAPI, SQLAlchemy, PostgreSQL or SQLite, Pydantic Settings
 - Frontend: Next.js 14, React 18, TypeScript, Tailwind CSS
-- SDK: TypeScript
+- SDKs: TypeScript, Python
 - Local container setup: Docker Compose
 
 ## Repo Layout
@@ -44,6 +45,7 @@ The project is designed to cover the full workflow:
 ├── backend/          FastAPI API server
 ├── frontend/         Next.js dashboard
 ├── packages/sdk-js/  JavaScript/TypeScript SDK
+├── packages/sdk-python/ Python SDK
 └── docker-compose.yml
 ```
 
@@ -99,6 +101,15 @@ Frontend will start on `http://localhost:3000`.
 cd packages/sdk-js
 npm install
 npm run build
+```
+
+#### Python SDK Package
+
+```bash
+cd packages/sdk-python
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
 ```
 
 ## Environment Notes
@@ -159,7 +170,7 @@ Public SDK endpoint:
 GET /api/v1/sdk/{sdk_key}/config.json
 ```
 
-## SDK Example
+## SDK Examples
 
 ```ts
 import { ConfigHubClient } from "@confighub/sdk-js";
@@ -175,10 +186,36 @@ const showNewCheckout = client.getValue("new_checkout", false, {
 });
 ```
 
+```python
+from confighub_sdk import ConfigHubClient
+
+client = ConfigHubClient.create(
+    "YOUR_SDK_KEY",
+    base_url="http://localhost:8000",
+)
+
+show_new_checkout = client.get_value(
+    "new_checkout",
+    False,
+    {"identifier": "user-123", "country": "IN", "plan": "pro"},
+)
+```
+
 The SDK can also:
 - refresh config on demand
 - poll for config changes
 - evaluate all flags for a user in one call
+
+## Linting
+
+Ruff is configured at the repo root for all Python code in `backend/` and `packages/sdk-python/`.
+
+```bash
+make lint
+make format
+ruff check backend packages/sdk-python
+ruff format backend packages/sdk-python
+```
 
 ## Development Notes
 

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 """Targeting rule, condition, and percentage option models."""
 
@@ -10,6 +10,9 @@ from sqlalchemy import String, Integer, ForeignKey, Enum as SAEnum, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.setting import SettingValue
 
 
 class Comparator(str, enum.Enum):

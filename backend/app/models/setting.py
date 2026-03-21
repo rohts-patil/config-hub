@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 """Setting (feature flag) and SettingValue models."""
 
@@ -19,6 +19,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.config import Config
+    from app.models.environment import Environment
+    from app.models.permission import SettingTag
+    from app.models.targeting import PercentageOption, TargetingRule
 
 
 class SettingType(str, enum.Enum):
@@ -87,9 +93,7 @@ class SettingValue(Base):
 
     # Relationships
     setting: Mapped["Setting"] = relationship(back_populates="values")
-    environment: Mapped["Environment"] = relationship(
-        back_populates="setting_values"
-    )  # noqa: F821
+    environment: Mapped["Environment"] = relationship(back_populates="setting_values")  # noqa: F821
     targeting_rules: Mapped[List["TargetingRule"]] = relationship(
         back_populates="setting_value", cascade="all, delete-orphan"
     )  # noqa: F821

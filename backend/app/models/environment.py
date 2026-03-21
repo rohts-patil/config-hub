@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import TYPE_CHECKING, List
 
 """Environment model — represents a deployment stage (prod, staging, etc.)."""
 
@@ -10,6 +10,11 @@ from sqlalchemy import String, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.permission import SDKKey
+    from app.models.product import Product
+    from app.models.setting import SettingValue
 
 
 class Environment(Base):
@@ -29,9 +34,7 @@ class Environment(Base):
     )
 
     # Relationships
-    product: Mapped["Product"] = relationship(
-        back_populates="environments"
-    )  # noqa: F821
+    product: Mapped["Product"] = relationship(back_populates="environments")  # noqa: F821
     setting_values: Mapped[List["SettingValue"]] = relationship(
         back_populates="environment", cascade="all, delete-orphan"
     )  # noqa: F821

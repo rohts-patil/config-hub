@@ -75,8 +75,13 @@ async def create_config(
     org_id = await get_org_id_for_product(db, product_id)
     if org_id:
         await record_audit(
-            db, org_id, current_user.id, "created", "config",
-            entity_id=config.id, new_value={"name": config.name},
+            db,
+            org_id,
+            current_user.id,
+            "created",
+            "config",
+            entity_id=config.id,
+            new_value={"name": config.name},
         )
 
     return config
@@ -89,7 +94,9 @@ async def get_config(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return await require_config_member(db, config_id, current_user, product_id=product_id)
+    return await require_config_member(
+        db, config_id, current_user, product_id=product_id
+    )
 
 
 @config_router.patch("/{config_id}", response_model=ConfigOut)
@@ -100,7 +107,9 @@ async def update_config(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    config = await require_config_member(db, config_id, current_user, product_id=product_id)
+    config = await require_config_member(
+        db, config_id, current_user, product_id=product_id
+    )
     old_value = {"name": config.name, "order": config.order}
     if body.name is not None:
         config.name = body.name
@@ -111,8 +120,13 @@ async def update_config(
     org_id = await get_org_id_for_product(db, product_id)
     if org_id:
         await record_audit(
-            db, org_id, current_user.id, "updated", "config",
-            entity_id=config.id, old_value=old_value,
+            db,
+            org_id,
+            current_user.id,
+            "updated",
+            "config",
+            entity_id=config.id,
+            old_value=old_value,
             new_value={"name": config.name, "order": config.order},
         )
 
@@ -126,13 +140,20 @@ async def delete_config(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    config = await require_config_member(db, config_id, current_user, product_id=product_id)
+    config = await require_config_member(
+        db, config_id, current_user, product_id=product_id
+    )
 
     org_id = await get_org_id_for_product(db, product_id)
     if org_id:
         await record_audit(
-            db, org_id, current_user.id, "deleted", "config",
-            entity_id=config.id, old_value={"name": config.name},
+            db,
+            org_id,
+            current_user.id,
+            "deleted",
+            "config",
+            entity_id=config.id,
+            old_value={"name": config.name},
         )
 
     await db.delete(config)

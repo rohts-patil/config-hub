@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import TYPE_CHECKING, List
 
 """Organization and OrganizationMember models."""
 
@@ -11,6 +11,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.permission import AuditLog
+    from app.models.product import Product
+    from app.models.user import User
 
 
 class OrgRole(str, enum.Enum):

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 """Product model."""
 
@@ -10,6 +10,13 @@ from sqlalchemy import String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.config import Config
+    from app.models.environment import Environment
+    from app.models.organization import Organization
+    from app.models.permission import PermissionGroup, Tag, Webhook
+    from app.models.segment import Segment
 
 
 class Product(Base):
@@ -28,9 +35,7 @@ class Product(Base):
     )
 
     # Relationships
-    organization: Mapped["Organization"] = relationship(
-        back_populates="products"
-    )  # noqa: F821
+    organization: Mapped["Organization"] = relationship(back_populates="products")  # noqa: F821
     configs: Mapped[List["Config"]] = relationship(
         back_populates="product", cascade="all, delete-orphan"
     )  # noqa: F821

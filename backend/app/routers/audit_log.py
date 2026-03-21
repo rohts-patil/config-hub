@@ -14,7 +14,9 @@ from app.models.permission import AuditLog
 from app.schemas.schemas import AuditLogOut
 from app.services.auth import get_current_user
 
-router = APIRouter(prefix="/api/v1/organizations/{org_id}/audit-log", tags=["Audit Log"])
+router = APIRouter(
+    prefix="/api/v1/organizations/{org_id}/audit-log", tags=["Audit Log"]
+)
 
 
 async def _require_org_member(org_id: str, user: User, db: AsyncSession):
@@ -47,4 +49,3 @@ async def list_audit_logs(
     query = query.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
-

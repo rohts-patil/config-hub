@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import List
 
 """Setting (feature flag) router — CRUD + value/targeting-rule management."""
 
@@ -101,7 +101,11 @@ async def create_setting(
     org_id = await get_org_id_for_config(db, config_id)
     if org_id:
         await record_audit(
-            db, org_id, current_user.id, "created", "setting",
+            db,
+            org_id,
+            current_user.id,
+            "created",
+            "setting",
             entity_id=setting.id,
             new_value={"key": setting.key, "name": setting.name, "type": s_type.value},
         )
@@ -154,10 +158,18 @@ async def update_setting(
     org_id = await get_org_id_for_config(db, config_id)
     if org_id:
         await record_audit(
-            db, org_id, current_user.id, "updated", "setting",
+            db,
+            org_id,
+            current_user.id,
+            "updated",
+            "setting",
             entity_id=setting.id,
             old_value=old_value,
-            new_value={"name": setting.name, "hint": setting.hint, "order": setting.order},
+            new_value={
+                "name": setting.name,
+                "hint": setting.hint,
+                "order": setting.order,
+            },
         )
 
     return setting
@@ -181,7 +193,11 @@ async def delete_setting(
     org_id = await get_org_id_for_config(db, config_id)
     if org_id:
         await record_audit(
-            db, org_id, current_user.id, "deleted", "setting",
+            db,
+            org_id,
+            current_user.id,
+            "deleted",
+            "setting",
             entity_id=setting.id,
             old_value={"key": setting.key, "name": setting.name},
         )
@@ -294,7 +310,11 @@ async def update_setting_value(
     org_id = await get_org_id_for_config(db, config_id)
     if org_id:
         await record_audit(
-            db, org_id, current_user.id, "updated", "setting_value",
+            db,
+            org_id,
+            current_user.id,
+            "updated",
+            "setting_value",
             entity_id=sv.id,
             old_value={"default_value": old_default},
             new_value={"default_value": body.default_value},

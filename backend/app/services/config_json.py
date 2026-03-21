@@ -9,8 +9,8 @@ from sqlalchemy.orm import selectinload
 
 from app.models.config import Config
 from app.models.setting import Setting, SettingValue
-from app.models.targeting import TargetingRule, Condition, PercentageOption
-from app.models.segment import Segment, SegmentCondition
+from app.models.targeting import TargetingRule
+from app.models.segment import Segment
 from app.models.permission import SDKKey
 
 
@@ -21,9 +21,7 @@ async def generate_config_json(sdk_key_str: str, db: AsyncSession) -> Optional[d
     """
     # Look up SDK key
     result = await db.execute(
-        select(SDKKey).where(
-            SDKKey.key == sdk_key_str, SDKKey.revoked == False
-        )  # noqa: E712
+        select(SDKKey).where(SDKKey.key == sdk_key_str, SDKKey.revoked == False)  # noqa: E712
     )
     sdk_key = result.scalar_one_or_none()
     if not sdk_key:

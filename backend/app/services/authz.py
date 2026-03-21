@@ -83,4 +83,3 @@ async def require_environment_member(
 
     await require_product_member(db, env.product_id, user)
     return env
-

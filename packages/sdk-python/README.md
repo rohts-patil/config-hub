@@ -1,0 +1,52 @@
+# ConfigHub Python SDK
+
+Python client for ConfigHub feature flags and remote config.
+
+## Install
+
+```bash
+pip install confighub-sdk
+```
+
+For local development:
+
+```bash
+pip install -e .[dev]
+```
+
+## Usage
+
+```python
+from confighub_sdk import ConfigHubClient
+
+client = ConfigHubClient.create(
+    "YOUR_SDK_KEY",
+    base_url="http://localhost:8000",
+    poll_interval_seconds=60,
+)
+
+value = client.get_value("my_flag", False, {"identifier": "user-123"})
+print(value)
+
+all_values = client.get_all_values({"identifier": "user-123"})
+print(all_values)
+
+client.destroy()
+```
+
+## Features
+
+- Local evaluation using the fetched `config.json`
+- Targeting rules, segments, and percentage rollouts
+- Background polling with ETag support
+- In-memory config cache
+- `force_refresh()` and change/evaluation callbacks
+
+## Development
+
+Ruff support is configured at the repo root:
+
+```bash
+ruff check backend packages/sdk-python
+ruff format backend packages/sdk-python
+```

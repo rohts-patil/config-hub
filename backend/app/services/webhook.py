@@ -7,7 +7,6 @@ Runs in a background task so the API response is not delayed.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -44,7 +43,8 @@ async def dispatch_webhooks(
         )
     if environment_id:
         query = query.where(
-            (Webhook.environment_id == environment_id) | (Webhook.environment_id == None)  # noqa: E711
+            (Webhook.environment_id == environment_id)
+            | (Webhook.environment_id == None)  # noqa: E711
         )
 
     result = await db.execute(query)
@@ -75,20 +75,27 @@ async def _send_webhook(url: str, body: dict) -> None:
                     headers={"Content-Type": "application/json"},
                 )
                 if resp.status_code < 400:
-                    logger.info("Webhook delivered to %s (status %d)", url, resp.status_code)
+                    logger.info(
+                        "Webhook delivered to %s (status %d)", url, resp.status_code
+                    )
                     return
                 logger.warning(
                     "Webhook %s returned %d (attempt %d/%d)",
-                    url, resp.status_code, attempt + 1, MAX_RETRIES + 1,
+                    url,
+                    resp.status_code,
+                    attempt + 1,
+                    MAX_RETRIES + 1,
                 )
         except Exception as exc:
             logger.warning(
                 "Webhook %s failed (attempt %d/%d): %s",
-                url, attempt + 1, MAX_RETRIES + 1, exc,
+                url,
+                attempt + 1,
+                MAX_RETRIES + 1,
+                exc,
             )
 
         if attempt < MAX_RETRIES:
             await asyncio.sleep(BACKOFF_BASE ** (attempt + 1))
 
     logger.error("Webhook %s exhausted all retries", url)
-

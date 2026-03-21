@@ -56,7 +56,9 @@ async def get_org_id_for_product(db: AsyncSession, product_id: str) -> Optional[
     from app.models.product import Product
     from sqlalchemy import select
 
-    result = await db.execute(select(Product.organization_id).where(Product.id == product_id))
+    result = await db.execute(
+        select(Product.organization_id).where(Product.id == product_id)
+    )
     row = result.scalar_one_or_none()
     return row
 
@@ -73,4 +75,3 @@ async def get_org_id_for_config(db: AsyncSession, config_id: str) -> Optional[st
         .where(Config.id == config_id)
     )
     return result.scalar_one_or_none()
-

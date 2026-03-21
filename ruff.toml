@@ -1,0 +1,18 @@
+target-version = "py39"
+line-length = 88
+src = ["backend", "packages/sdk-python"]
+extend-exclude = [
+    "backend/flagsmith_backend.egg-info",
+    "backend/flagsmith.db",
+]
+
+[lint]
+select = ["E7", "E9", "F"]
+
+[lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

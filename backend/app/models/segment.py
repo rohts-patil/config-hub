@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 """Segment and SegmentCondition models."""
 
@@ -11,6 +11,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.models.targeting import Comparator
+
+if TYPE_CHECKING:
+    from app.models.product import Product
 
 
 class Segment(Base):
