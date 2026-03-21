@@ -43,30 +43,58 @@ export function Sidebar({ orgId, productId, configId }: SidebarProps) {
   const contextNav: NavItem[] = [];
 
   if (orgId) {
-    contextNav.push({ label: "Products", href: `/dashboard/${orgId}`, icon: Package });
+    contextNav.push({
+      label: "Products",
+      href: `/dashboard/${orgId}`,
+      icon: Package,
+    });
   }
   if (orgId && productId) {
     contextNav.push(
-      { label: "Configs", href: `/dashboard/${orgId}/${productId}`, icon: Layers },
-      { label: "Environments", href: `/dashboard/${orgId}/${productId}/environments`, icon: Settings },
-      { label: "Segments", href: `/dashboard/${orgId}/${productId}/segments`, icon: Users },
-      { label: "Tags", href: `/dashboard/${orgId}/${productId}/tags`, icon: Tag },
+      {
+        label: "Configs",
+        href: `/dashboard/${orgId}/${productId}`,
+        icon: Layers,
+      },
+      {
+        label: "Environments",
+        href: `/dashboard/${orgId}/${productId}/environments`,
+        icon: Settings,
+      },
+      {
+        label: "Segments",
+        href: `/dashboard/${orgId}/${productId}/segments`,
+        icon: Users,
+      },
+      {
+        label: "Tags",
+        href: `/dashboard/${orgId}/${productId}/tags`,
+        icon: Tag,
+      }
     );
   }
   if (orgId && productId) {
-    contextNav.push(
-      { label: "SDK Keys", href: `/dashboard/${orgId}/${productId}/sdk-keys`, icon: Key },
-    );
+    contextNav.push({
+      label: "SDK Keys",
+      href: `/dashboard/${orgId}/${productId}/sdk-keys`,
+      icon: Key,
+    });
   }
   if (orgId && productId && configId) {
-    contextNav.push(
-      { label: "Feature Flags", href: `/dashboard/${orgId}/${productId}/${configId}`, icon: Flag },
-    );
+    contextNav.push({
+      label: "Feature Flags",
+      href: `/dashboard/${orgId}/${productId}/${configId}`,
+      icon: Flag,
+    });
   }
   if (orgId) {
     contextNav.push(
-      { label: "Audit Log", href: `/dashboard/${orgId}/audit-log`, icon: ScrollText },
-      { label: "Webhooks", href: `/dashboard/${orgId}/webhooks`, icon: Webhook },
+      {
+        label: "Audit Log",
+        href: `/dashboard/${orgId}/audit-log`,
+        icon: ScrollText,
+      },
+      { label: "Webhooks", href: `/dashboard/${orgId}/webhooks`, icon: Webhook }
     );
   }
 
@@ -81,13 +109,25 @@ export function Sidebar({ orgId, productId, configId }: SidebarProps) {
     >
       <div className="flex h-14 items-center justify-between border-b px-4">
         {!collapsed && (
-          <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2 font-semibold"
+          >
             <Flag className="h-5 w-5 text-primary" />
             <span>ConfigHub</span>
           </Link>
         )}
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(!collapsed)}>
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
         </Button>
       </div>
 
@@ -114,4 +154,3 @@ export function Sidebar({ orgId, productId, configId }: SidebarProps) {
     </aside>
   );
 }
-

@@ -64,7 +64,11 @@ export default function OrganizationsPage() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
   }
 
   return (
@@ -75,8 +79,11 @@ export default function OrganizationsPage() {
           <p className="text-muted-foreground">Manage your organizations</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger >
-            <Button><Plus className="mr-2 h-4 w-4" />New Organization</Button>
+          <DialogTrigger>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Organization
+            </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -85,9 +92,16 @@ export default function OrganizationsPage() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
                 <Label>Name</Label>
-                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="My Organization" required />
+                <Input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="My Organization"
+                  required
+                />
               </div>
-              <Button type="submit" className="w-full">Create</Button>
+              <Button type="submit" className="w-full">
+                Create
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -97,21 +111,37 @@ export default function OrganizationsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Building2 className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">No organizations yet. Create your first one!</p>
+            <p className="text-muted-foreground">
+              No organizations yet. Create your first one!
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {orgs.map((org) => (
-            <Card key={org.id} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => router.push(`/dashboard/${org.id}`)}>
+            <Card
+              key={org.id}
+              className="cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => router.push(`/dashboard/${org.id}`)}
+            >
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-lg">{org.name}</CardTitle>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(org.id, org.name); }}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(org.id, org.name);
+                  }}
+                >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-muted-foreground">Created {new Date(org.created_at).toLocaleDateString()}</p>
+                <p className="text-xs text-muted-foreground">
+                  Created {new Date(org.created_at).toLocaleDateString()}
+                </p>
               </CardContent>
             </Card>
           ))}
@@ -120,4 +150,3 @@ export default function OrganizationsPage() {
     </div>
   );
 }
-

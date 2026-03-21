@@ -8,9 +8,28 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 import { Plus, Trash2, Webhook } from "lucide-react";
 
@@ -84,9 +103,13 @@ export default function WebhooksPage() {
       await api.webhooks.create(selectedProduct, { url, enabled: true });
       setUrl("");
       setDialogOpen(false);
-      toast.success("Webhook created"); fetchWebhooks();
-    } catch (err: any) { toast.error(err.message); }
-    finally { setSaving(false); }
+      toast.success("Webhook created");
+      fetchWebhooks();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -97,8 +120,9 @@ export default function WebhooksPage() {
       toast.success("Deleted");
       const data = await api.webhooks.list(selectedProduct);
       setWebhooks(data);
+    } catch (err: any) {
+      toast.error(err.message);
     }
-    catch (err: any) { toast.error(err.message); }
   };
 
   const fetchWebhooks = async () => {
@@ -110,12 +134,22 @@ export default function WebhooksPage() {
     setWebhooks(data);
   };
 
-  if (loading) return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold">Webhooks</h1><p className="text-muted-foreground">Receive notifications when changes happen</p></div>
+        <div>
+          <h1 className="text-2xl font-bold">Webhooks</h1>
+          <p className="text-muted-foreground">
+            Receive notifications when changes happen
+          </p>
+        </div>
         <div className="flex items-center gap-3">
           <Select
             value={selectedProduct}
@@ -123,34 +157,70 @@ export default function WebhooksPage() {
             disabled={products.length === 0}
           >
             <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder={products.length === 0 ? "No products" : "Select product"} />
+              <SelectValue
+                placeholder={
+                  products.length === 0 ? "No products" : "Select product"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {products.map((product) => (
-                <SelectItem key={product.id} value={product.id}>{product.name}</SelectItem>
+                <SelectItem key={product.id} value={product.id}>
+                  {product.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger>
-              <Button disabled={!selectedProduct}><Plus className="mr-2 h-4 w-4" />New Webhook</Button>
+              <Button disabled={!selectedProduct}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Webhook
+              </Button>
             </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Create Webhook</DialogTitle></DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-2"><Label>URL</Label><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/webhook" type="url" required /></div>
-              <p className="text-sm text-muted-foreground">This webhook applies to the currently selected product.</p>
-              <Button type="submit" className="w-full" disabled={saving}>{saving ? "Creating..." : "Create"}</Button>
-            </form>
-          </DialogContent>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Webhook</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreate} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>URL</Label>
+                  <Input
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="https://example.com/webhook"
+                    type="url"
+                    required
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  This webhook applies to the currently selected product.
+                </p>
+                <Button type="submit" className="w-full" disabled={saving}>
+                  {saving ? "Creating..." : "Create"}
+                </Button>
+              </form>
+            </DialogContent>
           </Dialog>
         </div>
       </div>
 
       {!selectedProduct ? (
-        <Card><CardContent className="flex flex-col items-center justify-center py-12"><Webhook className="h-12 w-12 text-muted-foreground/50 mb-4" /><p className="text-muted-foreground">Create a product first to manage webhooks.</p></CardContent></Card>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Webhook className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <p className="text-muted-foreground">
+              Create a product first to manage webhooks.
+            </p>
+          </CardContent>
+        </Card>
       ) : webhooks.length === 0 ? (
-        <Card><CardContent className="flex flex-col items-center justify-center py-12"><Webhook className="h-12 w-12 text-muted-foreground/50 mb-4" /><p className="text-muted-foreground">No webhooks configured.</p></CardContent></Card>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Webhook className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <p className="text-muted-foreground">No webhooks configured.</p>
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <Table>
@@ -166,17 +236,42 @@ export default function WebhooksPage() {
             <TableBody>
               {webhooks.map((wh) => (
                 <TableRow key={wh.id}>
-                  <TableCell className="font-mono text-sm max-w-[300px] truncate">{wh.url}</TableCell>
+                  <TableCell className="font-mono text-sm max-w-[300px] truncate">
+                    {wh.url}
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {wh.config_id ? <Badge variant="outline" className="text-xs">Config {wh.config_id.slice(0, 8)}</Badge> : <Badge variant="secondary">All configs</Badge>}
-                      {wh.environment_id ? <Badge variant="outline" className="text-xs">Env {wh.environment_id.slice(0, 8)}</Badge> : <Badge variant="secondary">All envs</Badge>}
+                      {wh.config_id ? (
+                        <Badge variant="outline" className="text-xs">
+                          Config {wh.config_id.slice(0, 8)}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">All configs</Badge>
+                      )}
+                      {wh.environment_id ? (
+                        <Badge variant="outline" className="text-xs">
+                          Env {wh.environment_id.slice(0, 8)}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">All envs</Badge>
+                      )}
                     </div>
                   </TableCell>
-                  <TableCell><Badge variant={wh.enabled ? "default" : "secondary"}>{wh.enabled ? "Active" : "Inactive"}</Badge></TableCell>
-                  <TableCell className="text-muted-foreground">{new Date(wh.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(wh.id)}>
+                    <Badge variant={wh.enabled ? "default" : "secondary"}>
+                      {wh.enabled ? "Active" : "Inactive"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {new Date(wh.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDelete(wh.id)}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>

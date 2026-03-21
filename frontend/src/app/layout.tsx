@@ -22,9 +22,7 @@ export default function RootLayout({
     <html lang="en" className={cn("font-sans", inter.variable)}>
       <body className="antialiased">
         <AuthProvider>
-          <TooltipProvider>
-            {children}
-          </TooltipProvider>
+          <TooltipProvider>{children}</TooltipProvider>
           <Toaster richColors position="top-right" />
         </AuthProvider>
       </body>

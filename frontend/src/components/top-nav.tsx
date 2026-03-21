@@ -15,18 +15,19 @@ import { LogOut } from "lucide-react";
 export function TopNav() {
   const { user, logout } = useAuth();
 
-  const initials = user?.name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "U";
+  const initials =
+    user?.name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "U";
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-background px-6">
       <div />
       <DropdownMenu>
-        <DropdownMenuTrigger >
+        <DropdownMenuTrigger>
           <Button variant="ghost" className="relative h-8 w-8 rounded-full">
             <Avatar className="h-8 w-8">
               <AvatarFallback className="bg-primary text-primary-foreground text-xs">
@@ -50,4 +51,3 @@ export function TopNav() {
     </header>
   );
 }
-
