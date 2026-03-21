@@ -152,13 +152,17 @@ interface Tag {
 }
 
 // ── SDK Key ──
-interface SDKKey {
+interface SDKKeySummary {
   id: string;
   config_id: string;
   environment_id: string;
-  key: string;
+  masked_key: string;
   revoked: boolean;
   created_at: string;
+}
+
+interface SDKKeySecret extends SDKKeySummary {
+  key: string;
 }
 
 // ── Audit Log ──
@@ -166,6 +170,20 @@ interface AuditLogEntry {
   id: string;
   organization_id: string;
   user_id?: string;
+  user?: {
+    id: string;
+    email: string;
+    name: string;
+  };
+  context?: {
+    entity_label?: string;
+    entity_name?: string;
+    setting_key?: string;
+    setting_name?: string;
+    environment_name?: string;
+    config_name?: string;
+    product_name?: string;
+  };
   action: string;
   entity_type: string;
   entity_id?: string;

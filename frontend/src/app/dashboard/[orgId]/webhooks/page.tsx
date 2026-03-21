@@ -20,7 +20,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import {
   Table,
@@ -42,6 +41,9 @@ export default function WebhooksPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const selectedProductName =
+    products.find((product) => product.id === selectedProduct)?.name ||
+    (products.length === 0 ? "No products" : "Select product");
 
   useEffect(() => {
     let cancelled = false;
@@ -157,11 +159,7 @@ export default function WebhooksPage() {
             disabled={products.length === 0}
           >
             <SelectTrigger className="w-[220px]">
-              <SelectValue
-                placeholder={
-                  products.length === 0 ? "No products" : "Select product"
-                }
-              />
+              <span className="truncate">{selectedProductName}</span>
             </SelectTrigger>
             <SelectContent>
               {products.map((product) => (

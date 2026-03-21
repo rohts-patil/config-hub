@@ -21,11 +21,17 @@ from app.schemas.schemas import (
     EnvironmentCreate,
     EnvironmentUpdate,
     EnvironmentOut,
-    SDKKeyOut,
+    SDKKeyCreate,
+    SDKKeySecretOut,
+    SDKKeySummaryOut,
 )
 from app.services.auth import get_current_user
 from app.services.audit import record_audit, get_org_id_for_product
-from app.services.authz import require_config_member, require_product_member
+from app.services.authz import (
+    require_config_member,
+    require_environment_member,
+    require_product_member,
+)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -64,11 +70,7 @@ async def create_config(
         select(Environment).where(Environment.product_id == product_id)
     )
     for env in envs.scalars().all():
-        sdk_key = SDKKey(
-            config_id=config.id,
-            environment_id=env.id,
-            key=f"{config.id[:8]}/{env.id[:8]}/{secrets.token_urlsafe(22)}",
-        )
+        sdk_key = _build_sdk_key(config.id, env.id)
         db.add(sdk_key)
     await db.flush()
 
@@ -196,11 +198,7 @@ async def create_environment(
     # Auto-generate SDK keys for every existing config
     configs = await db.execute(select(Config).where(Config.product_id == product_id))
     for cfg in configs.scalars().all():
-        sdk_key = SDKKey(
-            config_id=cfg.id,
-            environment_id=env.id,
-            key=f"{cfg.id[:8]}/{env.id[:8]}/{secrets.token_urlsafe(22)}",
-        )
+        sdk_key = _build_sdk_key(cfg.id, env.id)
         db.add(sdk_key)
     await db.flush()
 
@@ -297,7 +295,7 @@ sdk_key_router = APIRouter(
 )
 
 
-@sdk_key_router.get("", response_model=List[SDKKeyOut])
+@sdk_key_router.get("", response_model=List[SDKKeySummaryOut])
 async def list_sdk_keys(
     product_id: str,
     config_id: Optional[str] = Query(default=None),
@@ -309,4 +307,147 @@ async def list_sdk_keys(
     if config_id:
         query = query.where(SDKKey.config_id == config_id)
     result = await db.execute(query.order_by(SDKKey.created_at.desc()))
-    return result.scalars().all()
+    return [_sdk_key_summary(key) for key in result.scalars().all()]
+
+
+@sdk_key_router.post(
+    "", response_model=SDKKeySecretOut, status_code=status.HTTP_201_CREATED
+)
+async def create_sdk_key(
+    product_id: str,
+    body: SDKKeyCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await require_product_member(db, product_id, current_user)
+    config = await require_config_member(
+        db,
+        body.config_id,
+        current_user,
+        product_id=product_id,
+    )
+    environment = await require_environment_member(
+        db,
+        body.environment_id,
+        current_user,
+        product_id=product_id,
+    )
+
+    sdk_key = _build_sdk_key(config.id, environment.id)
+    db.add(sdk_key)
+    await db.flush()
+
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db,
+            org_id,
+            current_user.id,
+            "created",
+            "sdk_key",
+            entity_id=sdk_key.id,
+            new_value={
+                "config_name": config.name,
+                "environment_name": environment.name,
+                "key_prefix": sdk_key.key[:16],
+            },
+        )
+
+    return _sdk_key_secret(sdk_key)
+
+
+@sdk_key_router.post("/{sdk_key_id}/revoke", response_model=SDKKeySummaryOut)
+async def revoke_sdk_key(
+    product_id: str,
+    sdk_key_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await require_product_member(db, product_id, current_user)
+    sdk_key = await _load_sdk_key_for_product(db, product_id, sdk_key_id)
+    if sdk_key.revoked:
+        return _sdk_key_summary(sdk_key)
+
+    sdk_key.revoked = True
+    await db.flush()
+
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db,
+            org_id,
+            current_user.id,
+            "updated",
+            "sdk_key",
+            entity_id=sdk_key.id,
+            new_value={"status": "revoked"},
+        )
+
+    return _sdk_key_summary(sdk_key)
+
+
+@sdk_key_router.delete("/{sdk_key_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_sdk_key(
+    product_id: str,
+    sdk_key_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await require_product_member(db, product_id, current_user)
+    sdk_key = await _load_sdk_key_for_product(db, product_id, sdk_key_id)
+
+    org_id = await get_org_id_for_product(db, product_id)
+    if org_id:
+        await record_audit(
+            db,
+            org_id,
+            current_user.id,
+            "deleted",
+            "sdk_key",
+            entity_id=sdk_key.id,
+            old_value={"status": "revoked" if sdk_key.revoked else "active"},
+        )
+
+    await db.delete(sdk_key)
+
+
+def _build_sdk_key(config_id: str, environment_id: str) -> SDKKey:
+    return SDKKey(
+        config_id=config_id,
+        environment_id=environment_id,
+        key=f"{config_id[:8]}/{environment_id[:8]}/{secrets.token_urlsafe(22)}",
+    )
+
+
+async def _load_sdk_key_for_product(
+    db: AsyncSession,
+    product_id: str,
+    sdk_key_id: str,
+) -> SDKKey:
+    result = await db.execute(
+        select(SDKKey)
+        .join(Config)
+        .where(SDKKey.id == sdk_key_id, Config.product_id == product_id)
+    )
+    sdk_key = result.scalar_one_or_none()
+    if not sdk_key:
+        raise HTTPException(status_code=404, detail="SDK key not found")
+    return sdk_key
+
+
+def _sdk_key_summary(sdk_key: SDKKey) -> dict:
+    return {
+        "id": sdk_key.id,
+        "config_id": sdk_key.config_id,
+        "environment_id": sdk_key.environment_id,
+        "masked_key": "********************",
+        "revoked": sdk_key.revoked,
+        "created_at": sdk_key.created_at,
+    }
+
+
+def _sdk_key_secret(sdk_key: SDKKey) -> dict:
+    return {
+        **_sdk_key_summary(sdk_key),
+        "key": sdk_key.key,
+    }

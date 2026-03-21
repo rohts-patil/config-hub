@@ -93,7 +93,7 @@ export class ConfigHubClient {
    * Force an immediate refresh of the config JSON from the server.
    */
   async forceRefresh(): Promise<void> {
-    const url = `${this.baseUrl}/api/v1/sdk/${this.sdkKey}/config.json`;
+    const url = `${this.baseUrl}/api/v1/sdk/${encodeURIComponent(this.sdkKey)}/config.json`;
     const headers: Record<string, string> = {};
     if (this.configEtag) {
       headers["If-None-Match"] = this.configEtag;
@@ -154,4 +154,3 @@ export class ConfigHubClient {
     }, this.pollIntervalMs);
   }
 }
-

@@ -29,6 +29,197 @@ const ENTITY_TYPES = [
   "webhook",
 ];
 
+function humanizeLabel(value: string) {
+  return value.replace(/_/g, " ");
+}
+
+function normalizeAuditValue(value: unknown): unknown {
+  if (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "v" in (value as Record<string, unknown>) &&
+    Object.keys(value as Record<string, unknown>).length === 1
+  ) {
+    return (value as Record<string, unknown>).v;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(normalizeAuditValue);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(
+        ([key, innerValue]) => [key, normalizeAuditValue(innerValue)]
+      )
+    );
+  }
+
+  return value;
+}
+
+function formatAuditValue(value: unknown): string {
+  const normalized = normalizeAuditValue(value);
+
+  if (normalized === undefined) return "empty";
+  if (normalized === null) return "empty";
+  if (typeof normalized === "string") return normalized || "empty";
+  if (typeof normalized === "number" || typeof normalized === "boolean") {
+    return String(normalized);
+  }
+
+  if (Array.isArray(normalized)) {
+    return normalized.map((item) => formatAuditValue(item)).join(", ");
+  }
+
+  return JSON.stringify(normalized);
+}
+
+function valuesAreEqual(left: unknown, right: unknown) {
+  return (
+    JSON.stringify(normalizeAuditValue(left)) ===
+    JSON.stringify(normalizeAuditValue(right))
+  );
+}
+
+function summarizeFields(values?: Record<string, unknown>) {
+  if (!values) return [];
+
+  return Object.entries(values)
+    .slice(0, 4)
+    .map(([key, value]) => `${humanizeLabel(key)}: ${formatAuditValue(value)}`);
+}
+
+function getEntityLabel(entry: AuditLogEntry) {
+  return (
+    entry.context?.entity_label ||
+    entry.context?.entity_name ||
+    (typeof entry.new_value?.setting_key === "string"
+      ? `${entry.new_value.setting_key}${entry.new_value.environment_name ? ` in ${entry.new_value.environment_name}` : ""}`
+      : undefined) ||
+    (typeof entry.new_value?.name === "string"
+      ? entry.new_value.name
+      : undefined) ||
+    (typeof entry.old_value?.name === "string"
+      ? entry.old_value.name
+      : undefined)
+  );
+}
+
+function describeSettingValueEntry(entry: AuditLogEntry) {
+  const label =
+    getEntityLabel(entry) ||
+    entry.context?.setting_key ||
+    humanizeLabel(entry.entity_type);
+  const oldValue = entry.old_value ?? {};
+  const newValue = entry.new_value ?? {};
+  const details: string[] = [];
+
+  if (!valuesAreEqual(oldValue.default_value, newValue.default_value)) {
+    details.push(
+      `Default value changed from ${formatAuditValue(oldValue.default_value)} to ${formatAuditValue(newValue.default_value)}`
+    );
+  }
+
+  if (!valuesAreEqual(oldValue.targeting_rules, newValue.targeting_rules)) {
+    const nextRuleCount = Array.isArray(newValue.targeting_rules)
+      ? newValue.targeting_rules.length
+      : 0;
+    details.push(
+      nextRuleCount > 0
+        ? `Targeting rules updated (${nextRuleCount} rule${nextRuleCount === 1 ? "" : "s"} now active)`
+        : "Targeting rules cleared"
+    );
+  }
+
+  if (
+    !valuesAreEqual(oldValue.percentage_options, newValue.percentage_options)
+  ) {
+    const rollout = Array.isArray(newValue.percentage_options)
+      ? newValue.percentage_options
+          .map((option) => {
+            if (!option || typeof option !== "object") return null;
+            const typedOption = option as Record<string, unknown>;
+            return `${typedOption.percentage}% => ${formatAuditValue(typedOption.value)}`;
+          })
+          .filter(Boolean)
+          .join(", ")
+      : "";
+
+    details.push(
+      rollout
+        ? `Percentage rollout updated: ${rollout}`
+        : "Percentage rollout cleared"
+    );
+  }
+
+  return {
+    title: `Updated ${label}`,
+    details:
+      details.length > 0
+        ? details
+        : ["Targeting rules, rollout, or default value were refreshed."],
+  };
+}
+
+function describeAuditEntry(entry: AuditLogEntry) {
+  const entity = humanizeLabel(entry.entity_type);
+  const action = entry.action.toLowerCase();
+  const oldValue = entry.old_value ?? {};
+  const newValue = entry.new_value ?? {};
+  const label = getEntityLabel(entry);
+
+  if (entry.entity_type === "setting_value") {
+    return describeSettingValueEntry(entry);
+  }
+
+  if (action.includes("create")) {
+    const details = summarizeFields(entry.new_value);
+    return {
+      title: label ? `Created ${label}` : `Created ${entity}`,
+      details: details.length > 0 ? details : ["New record added."],
+    };
+  }
+
+  if (action.includes("delete")) {
+    const details = summarizeFields(entry.old_value);
+    return {
+      title: label ? `Deleted ${label}` : `Deleted ${entity}`,
+      details: details.length > 0 ? details : ["Record removed."],
+    };
+  }
+
+  const changedKeys = Array.from(
+    new Set([...Object.keys(oldValue), ...Object.keys(newValue)])
+  ).filter(
+    (key) =>
+      JSON.stringify(normalizeAuditValue(oldValue[key])) !==
+      JSON.stringify(normalizeAuditValue(newValue[key]))
+  );
+
+  const details = changedKeys.slice(0, 5).map((key) => {
+    const before = formatAuditValue(oldValue[key]);
+    const after = formatAuditValue(newValue[key]);
+    return `${humanizeLabel(key)} changed from ${before} to ${after}`;
+  });
+
+  return {
+    title: label ? `Updated ${label}` : `Updated ${entity}`,
+    details: details.length > 0 ? details : ["Values were refreshed."],
+  };
+}
+
+function getActorLabel(entry: AuditLogEntry) {
+  const name = entry.user?.name?.trim();
+  if (name) return name;
+
+  const email = entry.user?.email?.trim();
+  if (email) return email;
+
+  return entry.user_id ? `User ${entry.user_id.slice(0, 8)}` : "Unknown user";
+}
+
 export default function AuditLogPage() {
   const { orgId } = useParams() as { orgId: string };
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
@@ -122,37 +313,67 @@ export default function AuditLogPage() {
         </Card>
       ) : (
         <div className="space-y-1">
-          {entries.map((entry) => (
-            <div
-              key={entry.id}
-              className="flex items-start gap-4 rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors"
-            >
-              <div className="mt-0.5 h-2 w-2 rounded-full bg-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant={actionColor(entry.action) as any}>
-                    {entry.action}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {entry.entity_type}
-                  </span>
-                  {entry.entity_id && (
-                    <code className="text-xs bg-muted px-1 rounded">
-                      {entry.entity_id.slice(0, 8)}
-                    </code>
+          {entries.map((entry) => {
+            const description = describeAuditEntry(entry);
+
+            return (
+              <div
+                key={entry.id}
+                className="flex items-start gap-4 rounded-2xl border border-white/50 bg-card/80 px-4 py-4 shadow-sm transition-colors hover:bg-card"
+              >
+                <div className="mt-1 h-2.5 w-2.5 rounded-full bg-primary shrink-0" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant={actionColor(entry.action) as any}>
+                      {entry.action}
+                    </Badge>
+                    <Badge variant="outline">
+                      {humanizeLabel(entry.entity_type)}
+                    </Badge>
+                    {getEntityLabel(entry) ? (
+                      <Badge variant="outline" className="max-w-full">
+                        <span className="truncate">
+                          {getEntityLabel(entry)}
+                        </span>
+                      </Badge>
+                    ) : (
+                      entry.entity_id && (
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                          {entry.entity_id.slice(0, 8)}
+                        </code>
+                      )
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {description.title}
+                    </p>
+                    <p className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground/80">
+                      By {getActorLabel(entry)}
+                    </p>
+                    <div className="mt-1 space-y-1">
+                      {description.details.map((detail) => (
+                        <p
+                          key={detail}
+                          className="text-sm leading-6 text-muted-foreground"
+                        >
+                          {detail}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                  {entry.reason && (
+                    <p className="text-sm rounded-xl bg-muted/60 px-3 py-2 text-muted-foreground">
+                      {entry.reason}
+                    </p>
                   )}
                 </div>
-                {entry.reason && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {entry.reason}
-                  </p>
-                )}
+                <span className="text-xs text-muted-foreground whitespace-nowrap pt-0.5">
+                  {new Date(entry.created_at).toLocaleString()}
+                </span>
               </div>
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {new Date(entry.created_at).toLocaleString()}
-              </span>
-            </div>
-          ))}
+            );
+          })}
           <div className="flex justify-center pt-4">
             <Button variant="outline" size="sm" onClick={loadMore}>
               <ChevronDown className="mr-1 h-3 w-3" />

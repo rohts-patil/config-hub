@@ -20,11 +20,14 @@ from app.models.targeting import (
 )
 from app.models.environment import Environment
 from app.schemas.schemas import (
+    ConditionIn,
+    PercentageOptionIn,
     SettingCreate,
     SettingUpdate,
     SettingOut,
     SettingValueUpdate,
     SettingValueOut,
+    TargetingRuleIn,
 )
 from app.services.auth import get_current_user
 from app.services.audit import record_audit, get_org_id_for_config
@@ -237,15 +240,16 @@ async def update_setting_value(
     current_user: User = Depends(get_current_user),
 ):
     config_obj = await require_config_member(db, config_id, current_user)
-    await require_environment_member(
+    environment = await require_environment_member(
         db,
         env_id,
         current_user,
         product_id=config_obj.product_id,
     )
+    setting = await _load_setting(config_id, setting_id, db)
     sv = await _load_setting_value(setting_id, env_id, db)
 
-    old_default = sv.default_value
+    old_state = _serialize_setting_value_for_audit(sv, setting, environment)
 
     # Update default value
     sv.default_value = body.default_value
@@ -305,6 +309,7 @@ async def update_setting_value(
         db.add(pct)
 
     await db.flush()
+    new_state = _serialize_setting_value_update_for_audit(body, setting, environment)
 
     # Audit log + webhooks
     org_id = await get_org_id_for_config(db, config_id)
@@ -316,8 +321,8 @@ async def update_setting_value(
             "updated",
             "setting_value",
             entity_id=sv.id,
-            old_value={"default_value": old_default},
-            new_value={"default_value": body.default_value},
+            old_value=old_state,
+            new_value=new_state,
         )
 
     # Resolve product_id for webhooks
@@ -355,6 +360,122 @@ async def _load_setting_value(
             status_code=404, detail="Setting value not found for this environment"
         )
     return sv
+
+
+async def _load_setting(config_id: str, setting_id: str, db: AsyncSession) -> Setting:
+    result = await db.execute(
+        select(Setting).where(Setting.id == setting_id, Setting.config_id == config_id)
+    )
+    setting = result.scalar_one_or_none()
+    if not setting:
+        raise HTTPException(status_code=404, detail="Setting not found")
+    return setting
+
+
+def _serialize_setting_value_for_audit(
+    setting_value: SettingValue,
+    setting: Setting,
+    environment: Environment,
+) -> dict:
+    return {
+        "setting_key": setting.key,
+        "setting_name": setting.name,
+        "environment_name": environment.name,
+        "default_value": setting_value.default_value,
+        "targeting_rules": [
+            _serialize_targeting_rule_for_audit(rule)
+            for rule in sorted(
+                setting_value.targeting_rules, key=lambda item: item.order
+            )
+        ],
+        "percentage_options": [
+            _serialize_percentage_option_for_audit(option)
+            for option in sorted(
+                setting_value.percentage_options, key=lambda item: item.order
+            )
+        ],
+    }
+
+
+def _serialize_setting_value_update_for_audit(
+    body: SettingValueUpdate,
+    setting: Setting,
+    environment: Environment,
+) -> dict:
+    return {
+        "setting_key": setting.key,
+        "setting_name": setting.name,
+        "environment_name": environment.name,
+        "default_value": body.default_value,
+        "targeting_rules": [
+            _serialize_targeting_rule_input_for_audit(rule)
+            for rule in sorted(body.targeting_rules, key=lambda item: item.order)
+        ],
+        "percentage_options": [
+            _serialize_percentage_option_input_for_audit(option)
+            for option in sorted(body.percentage_options, key=lambda item: item.order)
+        ],
+    }
+
+
+def _serialize_targeting_rule_for_audit(rule: TargetingRule) -> dict:
+    return {
+        "served_value": rule.served_value,
+        "conditions": [
+            _serialize_condition_for_audit(condition)
+            for condition in sorted(rule.conditions, key=lambda item: item.id)
+        ],
+        "order": rule.order,
+    }
+
+
+def _serialize_targeting_rule_input_for_audit(rule: TargetingRuleIn) -> dict:
+    return {
+        "served_value": rule.served_value,
+        "conditions": [
+            _serialize_condition_input_for_audit(condition)
+            for condition in rule.conditions
+        ],
+        "order": rule.order,
+    }
+
+
+def _serialize_condition_for_audit(condition: Condition) -> dict:
+    return {
+        "condition_type": condition.condition_type.value,
+        "attribute": condition.attribute,
+        "comparator": condition.comparator.value,
+        "comparison_value": condition.comparison_value,
+        "segment_id": condition.segment_id,
+        "prerequisite_setting_id": condition.prerequisite_setting_id,
+    }
+
+
+def _serialize_condition_input_for_audit(condition: ConditionIn) -> dict:
+    return {
+        "condition_type": condition.condition_type,
+        "attribute": condition.attribute,
+        "comparator": condition.comparator,
+        "comparison_value": condition.comparison_value,
+        "segment_id": condition.segment_id,
+        "prerequisite_setting_id": condition.prerequisite_setting_id,
+    }
+
+
+def _serialize_percentage_option_for_audit(option: PercentageOption) -> dict:
+    return {
+        "percentage": option.percentage,
+        "value": option.value,
+        "order": option.order,
+    }
+
+
+def _serialize_percentage_option_input_for_audit(option: PercentageOptionIn) -> dict:
+    return {
+        "percentage": option.percentage,
+        "value": option.value,
+        "order": option.order,
+    }
 
 
 def _default_for_type(setting_type: SettingType):

@@ -4,6 +4,7 @@ import json
 import threading
 from typing import Any, Callable, Dict, Mapping, Optional, Tuple
 from urllib import error, request
+from urllib.parse import quote
 
 from .evaluator import evaluate_all_flags, evaluate_flag
 from .types import ConfigJson, UserObject
@@ -101,7 +102,8 @@ class ConfigHubClient:
         return results
 
     def force_refresh(self) -> None:
-        url = f"{self._base_url}/api/v1/sdk/{self._sdk_key}/config.json"
+        encoded_sdk_key = quote(self._sdk_key, safe="")
+        url = f"{self._base_url}/api/v1/sdk/{encoded_sdk_key}/config.json"
         headers: Dict[str, str] = {}
         with self._lock:
             if self._config_etag:

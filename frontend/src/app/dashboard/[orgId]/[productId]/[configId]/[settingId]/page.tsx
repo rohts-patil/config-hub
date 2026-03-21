@@ -155,6 +155,10 @@ export default function FlagEditorPage() {
     return val;
   };
 
+  const segmentName = (segmentId: string) =>
+    segments.find((segment) => segment.id === segmentId)?.name ||
+    "Select segment";
+
   const handleSave = async () => {
     if (!setting || !selectedEnv) return;
     setSaving(true);
@@ -423,7 +427,9 @@ export default function FlagEditorPage() {
                               }
                             >
                               <SelectTrigger className="w-[160px]">
-                                <SelectValue placeholder="Select segment" />
+                                <span className="truncate">
+                                  {segmentName(cond.segment_id)}
+                                </span>
                               </SelectTrigger>
                               <SelectContent>
                                 {segments.map((seg) => (

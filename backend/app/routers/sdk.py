@@ -11,7 +11,7 @@ from app.services.config_json import generate_config_json
 router = APIRouter(prefix="/api/v1/sdk", tags=["SDK"])
 
 
-@router.get("/{sdk_key}/config.json")
+@router.get("/{sdk_key:path}/config.json")
 async def get_config_json(
     sdk_key: str,
     db: AsyncSession = Depends(get_db),

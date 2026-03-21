@@ -35,6 +35,24 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AuditActorOut(BaseModel):
+    id: str
+    email: str
+    name: str
+
+    model_config = {"from_attributes": True}
+
+
+class AuditContextOut(BaseModel):
+    entity_label: Optional[str] = None
+    entity_name: Optional[str] = None
+    setting_key: Optional[str] = None
+    setting_name: Optional[str] = None
+    environment_name: Optional[str] = None
+    config_name: Optional[str] = None
+    product_name: Optional[str] = None
+
+
 # ── Organization ──────────────────────────────────────────────────────────────
 
 
@@ -278,15 +296,22 @@ class SegmentOut(BaseModel):
 # ── SDK Key ──────────────────────────────────────────────────────────────────
 
 
-class SDKKeyOut(BaseModel):
+class SDKKeySummaryOut(BaseModel):
     id: str
     config_id: str
     environment_id: str
-    key: str
+    masked_key: str
     revoked: bool
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+
+class SDKKeySecretOut(SDKKeySummaryOut):
+    key: str
+
+
+class SDKKeyCreate(BaseModel):
+    config_id: str
+    environment_id: str
 
 
 # ── Audit Log ────────────────────────────────────────────────────────────────
@@ -296,6 +321,8 @@ class AuditLogOut(BaseModel):
     id: str
     organization_id: str
     user_id: Optional[str]
+    user: Optional[AuditActorOut] = None
+    context: Optional[AuditContextOut] = None
     action: str
     entity_type: str
     entity_id: Optional[str]

@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import {
+  clearLastOrgId,
+  getLastOrgId,
+  setLastOrgId,
+} from "@/lib/dashboard-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,29 +29,53 @@ export default function OrganizationsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const router = useRouter();
 
-  const fetchOrgs = async () => {
-    try {
-      const data = await api.organizations.list();
-      setOrgs(data);
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchOrgs();
-  }, []);
+    let cancelled = false;
+
+    const loadOrgs = async () => {
+      try {
+        const data = await api.organizations.list();
+        if (cancelled) return;
+
+        if (data.length === 1) {
+          setLastOrgId(data[0].id);
+          router.replace(`/dashboard/${data[0].id}`);
+          return;
+        }
+
+        const lastOrgId = getLastOrgId();
+        if (lastOrgId && data.some((org) => org.id === lastOrgId)) {
+          router.replace(`/dashboard/${lastOrgId}`);
+          return;
+        }
+
+        setOrgs(data);
+      } catch (err: any) {
+        if (!cancelled) toast.error(err.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadOrgs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await api.organizations.create({ name: newName });
+      const data = await api.organizations.list();
       setNewName("");
       setDialogOpen(false);
+      setOrgs(data);
+      if (data.length === 1) {
+        setLastOrgId(data[0].id);
+      }
       toast.success("Organization created");
-      fetchOrgs();
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -56,8 +85,12 @@ export default function OrganizationsPage() {
     if (!confirm(`Delete organization "${name}"?`)) return;
     try {
       await api.organizations.delete(id);
+      const data = await api.organizations.list();
+      if (getLastOrgId() === id) {
+        clearLastOrgId();
+      }
+      setOrgs(data);
       toast.success("Organization deleted");
-      fetchOrgs();
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -122,7 +155,10 @@ export default function OrganizationsPage() {
             <Card
               key={org.id}
               className="cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => router.push(`/dashboard/${org.id}`)}
+              onClick={() => {
+                setLastOrgId(org.id);
+                router.push(`/dashboard/${org.id}`);
+              }}
             >
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-lg">{org.name}</CardTitle>

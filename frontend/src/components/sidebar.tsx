@@ -103,24 +103,34 @@ export function Sidebar({ orgId, productId, configId }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex h-screen flex-col border-r bg-sidebar text-sidebar-foreground transition-all duration-200",
+        "relative flex h-screen flex-col overflow-hidden border-r border-sidebar-border/70 bg-sidebar/85 text-sidebar-foreground shadow-[22px_0_50px_-36px_rgba(144,89,56,0.4)] backdrop-blur-xl transition-all duration-300",
         collapsed ? "w-16" : "w-60"
       )}
     >
-      <div className="flex h-14 items-center justify-between border-b px-4">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,184,137,0.26),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(114,196,180,0.2),transparent_28%)]" />
+      <div className="relative flex h-16 items-center justify-between border-b border-sidebar-border/60 px-4">
         {!collapsed && (
           <Link
             href="/dashboard"
-            className="flex items-center gap-2 font-semibold"
+            className="flex items-center gap-3 font-semibold"
           >
-            <Flag className="h-5 w-5 text-primary" />
-            <span>ConfigHub</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/15 text-primary shadow-inner">
+              <Flag className="h-5 w-5" />
+            </span>
+            <div className="leading-tight">
+              <span className="block text-[0.72rem] uppercase tracking-[0.24em] text-sidebar-foreground/55">
+                Cozy Flags
+              </span>
+              <span className="block text-base text-sidebar-foreground">
+                ConfigHub
+              </span>
+            </div>
           </Link>
         )}
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          className="h-9 w-9 rounded-2xl bg-background/55 dark:bg-background/75"
           onClick={() => setCollapsed(!collapsed)}
         >
           {collapsed ? (
@@ -131,7 +141,7 @@ export function Sidebar({ orgId, productId, configId }: SidebarProps) {
         </Button>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+      <nav className="relative flex-1 space-y-1.5 overflow-y-auto p-3">
         {allNav.map((item) => {
           const active = pathname === item.href;
           return (
@@ -139,13 +149,18 @@ export function Sidebar({ orgId, productId, configId }: SidebarProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                "flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm transition-all duration-200",
                 active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-[0_18px_34px_-24px_rgba(214,120,71,0.75)]"
+                  : "text-sidebar-foreground/72 hover:bg-sidebar-accent/55 hover:text-sidebar-foreground"
               )}
             >
-              <item.icon className="h-4 w-4 shrink-0" />
+              <item.icon
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  active ? "text-primary" : "text-sidebar-foreground/60"
+                )}
+              />
               {!collapsed && <span>{item.label}</span>}
             </Link>
           );

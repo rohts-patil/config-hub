@@ -232,10 +232,29 @@ export const api = {
       const q = new URLSearchParams();
       if (configId) q.set("config_id", configId);
       const qs = q.toString();
-      return request<SDKKey[]>(
+      return request<SDKKeySummary[]>(
         `/api/v1/products/${productId}/sdk-keys${qs ? `?${qs}` : ""}`
       );
     },
+    create: (
+      productId: string,
+      data: { config_id: string; environment_id: string }
+    ) =>
+      request<SDKKeySecret>(`/api/v1/products/${productId}/sdk-keys`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    revoke: (productId: string, sdkKeyId: string) =>
+      request<SDKKeySummary>(
+        `/api/v1/products/${productId}/sdk-keys/${sdkKeyId}/revoke`,
+        {
+          method: "POST",
+        }
+      ),
+    delete: (productId: string, sdkKeyId: string) =>
+      request<void>(`/api/v1/products/${productId}/sdk-keys/${sdkKeyId}`, {
+        method: "DELETE",
+      }),
   },
 
   // ── Audit Log ──

@@ -52,6 +52,7 @@ export default function FlagListPage() {
   const [newType, setNewType] = useState("boolean");
   const [newHint, setNewHint] = useState("");
   const router = useRouter();
+  const selectedEnvMeta = envs.find((env) => env.id === selectedEnv);
 
   useEffect(() => {
     let cancelled = false;
@@ -287,7 +288,15 @@ export default function FlagListPage() {
             onValueChange={(v) => v && setSelectedEnv(v)}
           >
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="Select environment" />
+              <span className="flex items-center gap-2 truncate">
+                {selectedEnvMeta && (
+                  <span
+                    className="h-2 w-2 rounded-full shrink-0"
+                    style={{ backgroundColor: selectedEnvMeta.color }}
+                  />
+                )}
+                {selectedEnvMeta?.name || "Select environment"}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {envs.map((env) => (
