@@ -262,10 +262,14 @@ export default function FlagEditorPage() {
       </div>
     );
 
+  const currentEnv = envs.find((e) => e.id === selectedEnv);
+  const activeRulesCount = rules.length;
+  const hasPercentageRollout = percentages.length > 0;
+
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-5xl pb-12">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 pb-4 border-b">
         <Button
           variant="ghost"
           size="icon"
@@ -277,56 +281,99 @@ export default function FlagEditorPage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{setting.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            <code className="bg-muted px-1.5 py-0.5 rounded">
+          <div className="flex items-center gap-2 mt-1">
+            <code className="bg-muted px-2 py-1 rounded text-xs">
               {setting.key}
             </code>
-            <Badge variant="secondary" className="ml-2">
+            <Badge variant="secondary" className="text-xs">
               {setting.setting_type}
             </Badge>
-          </p>
+          </div>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} disabled={saving} size="lg">
           <Save className="mr-2 h-4 w-4" />
           {saving ? "Saving..." : "Save Changes"}
         </Button>
       </div>
 
-      {/* Environment Tabs */}
+      {/* Environment Selector - Sticky */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-4 -mx-6 px-6 border-b">
+        <Tabs
+          value={selectedEnv}
+          onValueChange={(v) => v && setSelectedEnv(String(v))}
+          className="w-full"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Environment
+              </span>
+              <TabsList className="h-12 p-1 bg-muted/50">
+                {envs.map((env) => (
+                  <TabsTrigger 
+                    key={env.id} 
+                    value={env.id} 
+                    className="gap-2.5 px-6 h-10 data-[state=active]:shadow-md transition-all"
+                    style={{
+                      backgroundColor: selectedEnv === env.id ? env.color : undefined,
+                      color: selectedEnv === env.id ? '#ffffff' : undefined,
+                    }}
+                  >
+                    <span
+                      className="h-3 w-3 rounded-full border-2"
+                      style={{ 
+                        backgroundColor: selectedEnv === env.id ? '#ffffff' : env.color,
+                        borderColor: selectedEnv === env.id ? '#ffffff' : env.color,
+                      }}
+                    />
+                    <span className="font-semibold text-base">{env.name}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+            {currentEnv && (
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{activeRulesCount}</span>
+                  <span>rule{activeRulesCount !== 1 ? 's' : ''}</span>
+                </div>
+                {hasPercentageRollout && (
+                  <>
+                    <span>•</span>
+                    <span>Rollout active</span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </Tabs>
+      </div>
+
       <Tabs
         value={selectedEnv}
         onValueChange={(v) => v && setSelectedEnv(String(v))}
+        className="w-full"
       >
-        <TabsList>
-          {envs.map((env) => (
-            <TabsTrigger key={env.id} value={env.id} className="gap-2">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: env.color }}
-              />
-              {env.name}
-            </TabsTrigger>
-          ))}
-        </TabsList>
 
         {envs.map((env) => (
-          <TabsContent key={env.id} value={env.id} className="space-y-6">
+          <TabsContent key={env.id} value={env.id} className="space-y-6 mt-6">
             {/* Default Value */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Default Value</CardTitle>
-                <CardDescription>
+            <Card className="border-2">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Default Value</CardTitle>
+                <CardDescription className="text-sm">
                   Served when no targeting rule matches
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-3">
                 {setting.setting_type === "boolean" ? (
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                     <Switch
                       checked={defaultValue === "true"}
                       onCheckedChange={(v) => setDefaultValue(String(v))}
+                      className="data-[state=checked]:bg-green-600"
                     />
-                    <span className="text-sm font-medium">
+                    <span className="text-base font-semibold">
                       {defaultValue === "true" ? "ON" : "OFF"}
                     </span>
                   </div>
@@ -341,64 +388,67 @@ export default function FlagEditorPage() {
                         : "text"
                     }
                     placeholder="Default value"
+                    className="h-11"
                   />
                 )}
               </CardContent>
             </Card>
 
             {/* Targeting Rules */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Targeting Rules</CardTitle>
-                  <CardDescription>
+            <Card className="border-2">
+              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg">Targeting Rules</CardTitle>
+                  <CardDescription className="text-sm">
                     Rules evaluated top-down. First match wins.
                   </CardDescription>
                 </div>
                 <Button variant="outline" size="sm" onClick={addRule}>
-                  <Plus className="mr-1 h-3 w-3" />
+                  <Plus className="mr-1.5 h-4 w-4" />
                   Add Rule
                 </Button>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pt-2">
                 {rules.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No targeting rules. Default value will always be served.
-                  </p>
+                  <div className="text-center py-8 bg-muted/30 rounded-lg border-2 border-dashed">
+                    <p className="text-sm text-muted-foreground">
+                      No targeting rules. Default value will always be served.
+                    </p>
+                  </div>
                 )}
                 {rules.map((rule, ri) => (
-                  <div key={ri} className="rounded-lg border p-4 space-y-3">
+                  <div key={ri} className="rounded-lg border-2 bg-card p-4 space-y-4 shadow-sm">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <GripVertical className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">
+                        <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                        <span className="text-sm font-semibold">
                           Rule {ri + 1}
                         </span>
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-destructive"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => removeRule(ri)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
 
                     {/* Conditions */}
-                    <div className="space-y-2 pl-6">
-                      <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+                    <div className="space-y-3 pl-6 bg-muted/30 rounded-lg p-4">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         IF all conditions match:
                       </Label>
                       {rule.conditions.map((cond, ci) => (
-                        <div key={ci} className="flex items-center gap-2">
+                        <div key={ci} className="flex items-center gap-2 flex-wrap">
                           <Select
                             value={cond.condition_type}
                             onValueChange={(v) =>
                               setCond(ri, ci, "condition_type", v)
                             }
                           >
-                            <SelectTrigger className="w-[120px]">
+                            <SelectTrigger className="w-[130px] h-10">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -411,7 +461,7 @@ export default function FlagEditorPage() {
                           </Select>
                           {cond.condition_type === "user" && (
                             <Input
-                              className="w-[140px]"
+                              className="w-[150px] h-10"
                               placeholder="attribute"
                               value={cond.attribute}
                               onChange={(e) =>
@@ -426,7 +476,7 @@ export default function FlagEditorPage() {
                                 setCond(ri, ci, "segment_id", v)
                               }
                             >
-                              <SelectTrigger className="w-[160px]">
+                              <SelectTrigger className="w-[170px] h-10">
                                 <span className="truncate">
                                   {segmentName(cond.segment_id)}
                                 </span>
@@ -446,7 +496,7 @@ export default function FlagEditorPage() {
                               setCond(ri, ci, "comparator", v)
                             }
                           >
-                            <SelectTrigger className="w-[160px]">
+                            <SelectTrigger className="w-[170px] h-10">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -458,7 +508,7 @@ export default function FlagEditorPage() {
                             </SelectContent>
                           </Select>
                           <Input
-                            className="flex-1"
+                            className="flex-1 min-w-[150px] h-10"
                             placeholder="value"
                             value={cond.comparison_value}
                             onChange={(e) =>
@@ -473,29 +523,29 @@ export default function FlagEditorPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 shrink-0"
+                            className="h-8 w-8 shrink-0 hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => removeCond(ri, ci)}
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       ))}
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-xs"
+                        className="text-xs h-8"
                         onClick={() => addCond(ri)}
                       >
-                        <Plus className="mr-1 h-3 w-3" />
+                        <Plus className="mr-1.5 h-3.5 w-3.5" />
                         Add Condition
                       </Button>
                     </div>
 
-                    <Separator />
+                    <Separator className="my-3" />
 
                     {/* Served value */}
-                    <div className="flex items-center gap-3 pl-6">
-                      <Label className="text-xs text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                    <div className="flex items-center gap-3 pl-6 bg-muted/30 rounded-lg p-4">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
                         THEN serve:
                       </Label>
                       {setting.setting_type === "boolean" ? (
@@ -503,7 +553,7 @@ export default function FlagEditorPage() {
                           value={rule.served_value}
                           onValueChange={(v) => setRuleVal(ri, v)}
                         >
-                          <SelectTrigger className="w-[100px]">
+                          <SelectTrigger className="w-[120px] h-10">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -513,7 +563,7 @@ export default function FlagEditorPage() {
                         </Select>
                       ) : (
                         <Input
-                          className="w-[200px]"
+                          className="w-[220px] h-10"
                           value={rule.served_value}
                           onChange={(e) => setRuleVal(ri, e.target.value)}
                           type={
@@ -531,38 +581,40 @@ export default function FlagEditorPage() {
             </Card>
 
             {/* Percentage Rollout */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">
+            <Card className="border-2">
+              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg">
                     Percentage Rollout
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-sm">
                     Split traffic by percentage when no rule matches
                   </CardDescription>
                 </div>
                 <Button variant="outline" size="sm" onClick={addPct}>
-                  <Plus className="mr-1 h-3 w-3" />
+                  <Plus className="mr-1.5 h-4 w-4" />
                   Add Option
                 </Button>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-3 pt-2">
                 {percentages.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No percentage rollout configured.
-                  </p>
+                  <div className="text-center py-8 bg-muted/30 rounded-lg border-2 border-dashed">
+                    <p className="text-sm text-muted-foreground">
+                      No percentage rollout configured.
+                    </p>
+                  </div>
                 )}
                 {percentages.map((p, i) => (
-                  <div key={i} className="flex items-center gap-3">
+                  <div key={i} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                     <Input
-                      className="w-[80px]"
+                      className="w-[90px]"
                       type="number"
                       min={0}
                       max={100}
                       value={p.percentage}
                       onChange={(e) => setPct(i, "percentage", e.target.value)}
                     />
-                    <span className="text-sm text-muted-foreground">%</span>
+                    <span className="text-sm font-medium text-muted-foreground">%</span>
                     {setting.setting_type === "boolean" ? (
                       <Select
                         value={p.value}
@@ -601,11 +653,19 @@ export default function FlagEditorPage() {
                   </div>
                 ))}
                 {percentages.length > 0 && (
-                  <p
-                    className={`text-xs ${totalPct === 100 ? "text-green-600" : "text-destructive"}`}
-                  >
-                    Total: {totalPct}% {totalPct !== 100 && "(must equal 100%)"}
-                  </p>
+                  <div className="flex items-center gap-2 pt-2 border-t">
+                    <span className="text-sm font-medium">Total:</span>
+                    <span
+                      className={`text-sm font-bold ${totalPct === 100 ? "text-green-600" : "text-destructive"}`}
+                    >
+                      {totalPct}%
+                    </span>
+                    {totalPct !== 100 && (
+                      <span className="text-xs text-destructive">
+                        (must equal 100%)
+                      </span>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
