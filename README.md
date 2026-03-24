@@ -10,7 +10,7 @@ The project is designed to cover the full workflow:
 - evaluate flags client-side with lightweight JS and Python SDKs
 - track changes with audit logs and webhook integrations
 
-## What's Inside
+## What's Inside 
 
 ### Backend
 - FastAPI application with async SQLAlchemy
