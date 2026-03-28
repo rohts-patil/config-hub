@@ -27,7 +27,7 @@ interface NavItem {
 }
 
 const mainNav: NavItem[] = [
-  { label: "Organizations", href: "/dashboard", icon: Building2 },
+  { label: "Organizations", href: "/dashboard?view=all", icon: Building2 },
 ];
 
 interface SidebarProps {
@@ -111,7 +111,7 @@ export function Sidebar({ orgId, productId, configId }: SidebarProps) {
       <div className="relative flex h-16 items-center justify-between border-b border-sidebar-border/60 px-4">
         {!collapsed && (
           <Link
-            href="/dashboard"
+            href="/dashboard?view=all"
             className="flex items-center gap-3 font-semibold"
           >
             <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/15 text-primary shadow-inner">

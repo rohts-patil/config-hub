@@ -37,16 +37,20 @@ export default function OrganizationsPage() {
         const data = await api.organizations.list();
         if (cancelled) return;
 
-        if (data.length === 1) {
-          setLastOrgId(data[0].id);
-          router.replace(`/dashboard/${data[0].id}`);
-          return;
-        }
+        const viewAll = window.location.search.includes("view=all");
 
-        const lastOrgId = getLastOrgId();
-        if (lastOrgId && data.some((org) => org.id === lastOrgId)) {
-          router.replace(`/dashboard/${lastOrgId}`);
-          return;
+        if (!viewAll) {
+          if (data.length === 1) {
+            setLastOrgId(data[0].id);
+            router.replace(`/dashboard/${data[0].id}`);
+            return;
+          }
+
+          const lastOrgId = getLastOrgId();
+          if (lastOrgId && data.some((org) => org.id === lastOrgId)) {
+            router.replace(`/dashboard/${lastOrgId}`);
+            return;
+          }
         }
 
         setOrgs(data);
