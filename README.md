@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🚩 ConfigHub
+<img src="docs/images/confighub_logo.png" alt="ConfigHub Logo" width="180" />
+
+# ConfigHub
 
 ### Open-source feature flags & remote configuration — built for teams who ship fast.
 
