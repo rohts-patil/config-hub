@@ -1,79 +1,152 @@
-# ConfigHub
+<div align="center">
 
-ConfigHub is a feature flag and remote configuration platform built as a small monorepo. It includes a FastAPI backend, a Next.js admin dashboard, and SDKs for JavaScript/TypeScript and Python.
+# 🚩 ConfigHub
 
-The project is designed to cover the full workflow:
-- manage organizations, products, configs, and environments
-- create flags and remote config values
-- define targeting rules and segments
-- expose a public `config.json` endpoint for SDK consumers
-- evaluate flags client-side with lightweight JS and Python SDKs
-- track changes with audit logs and webhook integrations
+### Open-source feature flags & remote configuration — built for teams who ship fast.
 
-## What's Inside 
+Take control of your releases with powerful feature flags, targeted rollouts, and instant configuration changes — no redeployment required.
 
-### Backend
-- FastAPI application with async SQLAlchemy
-- JWT-based auth
-- APIs for organizations, products, configs, environments, settings, segments, tags, permissions, audit logs, and webhooks
-- Public SDK endpoint at `/api/v1/sdk/{sdk_key}/config.json`
+![Dashboard](docs/images/configs_page_empty_1774698649583.png)
 
-### Frontend
-- Next.js 14 app router dashboard
-- login and registration flows
-- dashboard screens for orgs, products, configs, environments, flags, segments, tags, audit logs, SDK keys, and webhooks
+---
 
-### SDK
-- package name: `@confighub/sdk-js`
-- package name: `confighub-sdk`
-- fetches config JSON from the backend
-- caches config locally
-- supports polling and ETag-based refreshes
-- evaluates targeting rules, segments, and percentage rollouts in the client
+**[Getting Started](#-getting-started)** · **[Features](#-features)** · **[SDKs](#-sdks)** · **[Architecture](#-architecture)** · **[Contributing](#-contributing)**
 
-## Tech Stack
+</div>
 
-- Backend: FastAPI, SQLAlchemy, PostgreSQL or SQLite, Pydantic Settings
-- Frontend: Next.js 14, React 18, TypeScript, Tailwind CSS
-- SDKs: TypeScript, Python
-- Local container setup: Docker Compose
+---
 
-## Repo Layout
+## ✨ Why ConfigHub?
 
-```text
-.
-├── backend/          FastAPI API server
-├── frontend/         Next.js dashboard
-├── packages/sdk-js/  JavaScript/TypeScript SDK
-├── packages/sdk-python/ Python SDK
-└── docker-compose.yml
-```
+Shipping code shouldn't mean crossing your fingers. ConfigHub gives you a clean, self-hosted platform to:
 
-## Quick Start
+- **🔀 Decouple deploys from releases** — ship code behind flags and flip them on when you're ready
+- **🎯 Target the right users** — roll out features to specific segments based on custom attributes
+- **🌍 Manage multiple environments** — separate configs for dev, staging, and production
+- **📊 Track every change** — full audit logs so you always know who changed what, and when
+- **🔔 Stay in the loop** — webhooks notify your systems in real time when flags change
 
-### Option 1: Run with Docker Compose
+---
 
-This is the fastest way to bring up the full stack.
+## 🖼 Features
+
+<details>
+<summary><strong>🏢 Organizations & Products</strong></summary>
+<br/>
+
+Built for multi-tenancy from the ground up. Create separate organizations for different teams or clients, and manage multiple products within each one.
+
+Switch between them instantly from the header dropdowns.
+
+<p>
+  <img src="docs/images/organizations_page_1774698506278.png" width="700" alt="Organizations" />
+</p>
+<p>
+  <img src="docs/images/products_page_empty_1774698573146.png" width="700" alt="Products" />
+</p>
+</details>
+
+<details>
+<summary><strong>🚩 Feature Flags & Configs</strong></summary>
+<br/>
+
+Create boolean feature flags or rich configuration values. Each config lives within a product and can be toggled independently per environment.
+
+<p>
+  <img src="docs/images/create_config_modal_1774698983556.png" width="700" alt="Create Config" />
+</p>
+</details>
+
+<details>
+<summary><strong>🌐 Environments</strong></summary>
+<br/>
+
+Define environments like Development, Staging, and Production. Each environment maintains its own independent flag states, so your staging experiments never leak into production.
+
+<p>
+  <img src="docs/images/create_environment_modal_1774699066654.png" width="700" alt="Create Environment" />
+</p>
+</details>
+
+<details>
+<summary><strong>🎯 Segments & Targeting</strong></summary>
+<br/>
+
+Build user segments based on custom rules and attributes. Target "Beta Users", "Enterprise Customers", or "US-based free-tier users" — whatever your rollout strategy needs.
+
+<p>
+  <img src="docs/images/create_segment_modal_1774699161359.png" width="700" alt="Create Segment" />
+</p>
+</details>
+
+<details>
+<summary><strong>🏷️ Tags</strong></summary>
+<br/>
+
+Organize your configs with tags for easy filtering and grouping across large projects.
+
+<p>
+  <img src="docs/images/tags_page_empty_1774698733901.png" width="700" alt="Tags" />
+</p>
+</details>
+
+<details>
+<summary><strong>🔑 SDK Keys</strong></summary>
+<br/>
+
+Generate unique SDK keys for each environment to securely connect your client applications.
+
+<p>
+  <img src="docs/images/sdk_keys_page_empty_1774698765069.png" width="700" alt="SDK Keys" />
+</p>
+</details>
+
+<details>
+<summary><strong>📋 Audit Logs</strong></summary>
+<br/>
+
+Every action is tracked. See a chronological feed of who changed what across your organization — invaluable for debugging and compliance.
+
+<p>
+  <img src="docs/images/audit_log_page_1774698820155.png" width="700" alt="Audit Log" />
+</p>
+</details>
+
+<details>
+<summary><strong>🔔 Webhooks</strong></summary>
+<br/>
+
+Configure webhook endpoints to receive real-time notifications when flags or configs change. Great for triggering CI/CD pipelines, Slack alerts, or cache invalidations.
+
+<p>
+  <img src="docs/images/webhooks_page_empty_1774698862848.png" width="700" alt="Webhooks" />
+</p>
+</details>
+
+> 📖 **Full visual documentation** with more screenshots is available in [`docs/FEATURES.md`](docs/FEATURES.md).
+
+---
+
+## 🚀 Getting Started
+
+### One command with Docker Compose (recommended)
 
 ```bash
 docker compose up --build
 ```
 
-Services:
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:8000`
-- Health check: `http://localhost:8000/api/v1/health`
-- PostgreSQL: `localhost:5432`
+That's it. Once containers are up:
 
-The Docker setup uses PostgreSQL and wires the frontend to the backend with:
-- `NEXT_PUBLIC_API_URL=http://localhost:8000`
-- `DATABASE_URL=postgresql+asyncpg://confighub:confighub@db:5432/confighub`
+| Service    | URL                                        |
+|------------|--------------------------------------------|
+| Dashboard  | [http://localhost:3000](http://localhost:3000) |
+| Backend API | [http://localhost:8000](http://localhost:8000) |
+| Health Check | [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health) |
 
-### Option 2: Run Locally
+### Run locally (for development)
 
-#### Backend
-
-The backend defaults to SQLite for local development if `DATABASE_URL` is not set.
+<details>
+<summary><strong>Backend</strong></summary>
 
 ```bash
 cd backend
@@ -83,9 +156,13 @@ pip install -e .
 uvicorn app.main:app --reload
 ```
 
-Backend will start on `http://localhost:8000`.
+The backend defaults to **SQLite** for local dev — no database setup needed.
 
-#### Frontend
+Available at `http://localhost:8000`.
+</details>
+
+<details>
+<summary><strong>Frontend</strong></summary>
 
 ```bash
 cd frontend
@@ -93,86 +170,35 @@ npm install
 NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
 ```
 
-Frontend will start on `http://localhost:3000`.
+Available at `http://localhost:3000`.
+</details>
 
-#### SDK Package
+<details>
+<summary><strong>SDKs</strong></summary>
 
+**JavaScript / TypeScript:**
 ```bash
 cd packages/sdk-js
-npm install
-npm run build
+npm install && npm run build
 ```
 
-#### Python SDK Package
-
+**Python:**
 ```bash
 cd packages/sdk-python
-python -m venv .venv
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 pip install -e .[dev]
 ```
+</details>
 
-## Environment Notes
+---
 
-### Backend
+## 📦 SDKs
 
-Important backend environment variables:
+ConfigHub ships with first-party SDKs that handle fetching, caching, polling, and client-side evaluation of targeting rules.
 
-```env
-DATABASE_URL=sqlite+aiosqlite:///./flagsmith.db
-JWT_SECRET_KEY=change-me-in-production-use-a-real-secret
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
-DEBUG=true
-CORS_ORIGINS=["http://localhost:3000"]
-```
+### JavaScript / TypeScript
 
-Notes:
-- local development can run on SQLite
-- Docker Compose uses PostgreSQL
-- table creation currently happens automatically on startup for convenience
-
-### Frontend
-
-Important frontend environment variable:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
-
-This value is baked into the browser bundle at build time, so it should point to a URL reachable from the user's machine.
-
-## API Surface
-
-The backend exposes routes for:
-- auth
-- organizations
-- products
-- configs
-- environments
-- settings and values
-- segments
-- tags
-- permissions
-- audit logs
-- webhooks
-- SDK config delivery
-
-Health endpoint:
-
-```text
-GET /api/v1/health
-```
-
-Public SDK endpoint:
-
-```text
-GET /api/v1/sdk/{sdk_key}/config.json
-```
-
-## SDK Examples
-
-```ts
+```typescript
 import { ConfigHubClient } from "@confighub/sdk-js";
 
 const client = await ConfigHubClient.create("YOUR_SDK_KEY", {
@@ -185,6 +211,8 @@ const showNewCheckout = client.getValue("new_checkout", false, {
   plan: "pro",
 });
 ```
+
+### Python
 
 ```python
 from confighub_sdk import ConfigHubClient
@@ -201,34 +229,92 @@ show_new_checkout = client.get_value(
 )
 ```
 
-The SDK can also:
-- refresh config on demand
-- poll for config changes
-- evaluate all flags for a user in one call
+Both SDKs support:
+- ⚡ On-demand config refresh
+- 🔄 Automatic polling for changes
+- 🧮 Client-side evaluation of targeting rules, segments & percentage rollouts
 
-## Linting
+---
 
-Ruff is configured at the repo root for all Python code in `backend/` and `packages/sdk-python/`.
+## 🏗 Architecture
 
-```bash
-make lint
-make format
-ruff check backend packages/sdk-python
-ruff format backend packages/sdk-python
+```
+┌──────────────────────────────────────────────────────────┐
+│                      ConfigHub                           │
+│                                                          │
+│  ┌─────────────┐    ┌──────────────┐    ┌────────────┐  │
+│  │  Next.js 14  │───▶│  FastAPI     │───▶│ PostgreSQL │  │
+│  │  Dashboard   │    │  Backend     │    │ / SQLite   │  │
+│  └─────────────┘    └──────┬───────┘    └────────────┘  │
+│                            │                             │
+│                     ┌──────▼───────┐                     │
+│                     │  Public SDK  │                     │
+│                     │  Endpoint    │                     │
+│                     └──────┬───────┘                     │
+│                            │                             │
+└────────────────────────────┼─────────────────────────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+        ┌─────▼─────┐ ┌─────▼─────┐ ┌──────▼─────┐
+        │  JS/TS    │ │  Python   │ │  Your App  │
+        │  SDK      │ │  SDK      │ │  (via API) │
+        └───────────┘ └───────────┘ └────────────┘
 ```
 
-## Development Notes
+| Layer | Tech |
+|-------|------|
+| **Frontend** | Next.js 14 · React 18 · TypeScript · Tailwind CSS |
+| **Backend** | FastAPI · SQLAlchemy (async) · Pydantic |
+| **Database** | PostgreSQL (production) · SQLite (local dev) |
+| **SDKs** | TypeScript · Python |
+| **Infrastructure** | Docker Compose |
 
-- The repo uses a root `.gitignore` plus package-level `.gitignore` files where framework-specific rules make sense.
-- The frontend and SDK are now regular folders in the main repo, not nested Git repositories.
-- The SDK package intentionally ignores local `dist/` and `node_modules/` output.
+---
 
-## Current Status
+## 📁 Repo Structure
 
-This repository already contains the main building blocks for a working feature flag platform:
-- backend APIs and data models
-- frontend dashboard flows
-- public SDK config endpoint
-- TypeScript SDK package
+```
+config-hub/
+├── backend/              # FastAPI API server
+├── frontend/             # Next.js admin dashboard
+├── packages/
+│   ├── sdk-js/           # JavaScript/TypeScript SDK
+│   └── sdk-python/       # Python SDK
+├── docs/                 # Screenshots & feature documentation
+├── docker-compose.yml    # Full-stack local setup
+└── Makefile              # Lint & format shortcuts
+```
 
-The next likely areas to improve are tests, production deployment hardening, migrations, and developer documentation for API/auth flows.
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1. Fork the repo
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Code Quality
+
+```bash
+make lint      # Check for issues
+make format    # Auto-format code
+```
+
+---
+
+## 📄 License
+
+This project is open source. See the repository for license details.
+
+---
+
+<div align="center">
+
+**Built with ❤️ for developers who want control over their releases.**
+
+</div>
