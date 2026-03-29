@@ -12,11 +12,13 @@ from app.database import get_db
 from app.models.user import User
 from app.models.organization import Organization, OrganizationMember, OrgRole
 from app.schemas.schemas import (
+    OrgMemberCreate,
     OrganizationCreate,
     OrganizationUpdate,
     OrganizationOut,
     OrgMemberOut,
 )
+from app.services.audit import record_audit
 from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/api/v1/organizations", tags=["Organizations"])
@@ -36,6 +38,30 @@ async def _get_org_as_member(org_id: str, user: User, db: AsyncSession) -> Organ
     )
     if not member.scalar_one_or_none():
         raise HTTPException(status_code=403, detail="Not a member of this organization")
+    return org
+
+
+async def _get_org_membership(
+    org_id: str, user_id: str, db: AsyncSession
+) -> OrganizationMember | None:
+    result = await db.execute(
+        select(OrganizationMember).where(
+            OrganizationMember.organization_id == org_id,
+            OrganizationMember.user_id == user_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def _require_org_admin(
+    org_id: str, user: User, db: AsyncSession
+) -> Organization:
+    org = await _get_org_as_member(org_id, user, db)
+    membership = await _get_org_membership(org_id, user.id, db)
+    if membership is None or membership.role != OrgRole.ADMIN:
+        raise HTTPException(
+            status_code=403, detail="Only organization admins can manage members"
+        )
     return org
 
 
@@ -115,3 +141,62 @@ async def list_members(
         .where(OrganizationMember.organization_id == org_id)
     )
     return result.scalars().all()
+
+
+@router.post(
+    "/{org_id}/members",
+    response_model=OrgMemberOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_member(
+    org_id: str,
+    body: OrgMemberCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _require_org_admin(org_id, current_user, db)
+
+    user_result = await db.execute(select(User).where(User.email == body.email))
+    invited_user = user_result.scalar_one_or_none()
+    if invited_user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found. Ask them to sign up first, then add them here.",
+        )
+
+    existing_member = await _get_org_membership(org_id, invited_user.id, db)
+    if existing_member is not None:
+        raise HTTPException(
+            status_code=400, detail="That user is already a member of this organization"
+        )
+
+    member = OrganizationMember(
+        organization_id=org_id,
+        user_id=invited_user.id,
+        role=OrgRole(body.role),
+    )
+    db.add(member)
+    await db.flush()
+
+    member_result = await db.execute(
+        select(OrganizationMember)
+        .options(selectinload(OrganizationMember.user))
+        .where(OrganizationMember.id == member.id)
+    )
+    created_member = member_result.scalar_one()
+
+    await record_audit(
+        db,
+        org_id,
+        current_user.id,
+        "created",
+        "organization_member",
+        entity_id=member.id,
+        new_value={
+            "email": invited_user.email,
+            "role": member.role.value,
+            "user_id": invited_user.id,
+        },
+    )
+
+    return created_member

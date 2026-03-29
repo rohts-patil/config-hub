@@ -85,6 +85,11 @@ class OrgMemberOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class OrgMemberCreate(BaseModel):
+    email: EmailStr
+    role: str = Field(default="member", pattern=r"^(admin|billing_manager|member)$")
+
+
 # ── Product ───────────────────────────────────────────────────────────────────
 
 

@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
 import { api } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,35 +17,76 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
-import { Package, Plus, Trash2 } from "lucide-react";
+import { Package, Plus, Trash2, Users } from "lucide-react";
 
 export default function ProductsPage() {
   const { orgId } = useParams() as { orgId: string };
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [members, setMembers] = useState<OrgMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [membersLoading, setMembersLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [memberEmail, setMemberEmail] = useState("");
+  const [memberRole, setMemberRole] = useState("member");
+  const [memberSubmitting, setMemberSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const router = useRouter();
+  const currentMembership = members.find((member) => member.user_id === user?.id);
+  const isOrgAdmin = currentMembership?.role === "admin";
 
   useEffect(() => {
     let cancelled = false;
-    const loadProducts = async () => {
+    const loadPage = async () => {
       try {
-        const data = await api.products.list(orgId);
-        if (!cancelled) setProducts(data);
+        const [productData, memberData] = await Promise.all([
+          api.products.list(orgId),
+          api.organizations.members(orgId),
+        ]);
+        if (!cancelled) {
+          setProducts(productData);
+          setMembers(memberData);
+        }
       } catch (err: any) {
         if (!cancelled) toast.error(err.message);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setMembersLoading(false);
+        }
       }
     };
-    loadProducts();
+    loadPage();
     return () => {
       cancelled = true;
     };
   }, [orgId]);
+
+  const refreshMembers = async () => {
+    const data = await api.organizations.members(orgId);
+    setMembers(data);
+  };
+
+  const refreshProducts = async () => {
+    const data = await api.products.list(orgId);
+    setProducts(data);
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,11 +110,41 @@ export default function ProductsPage() {
     if (!confirm(`Delete product "${name}"?`)) return;
     try {
       await api.products.delete(orgId, id);
-      const data = await api.products.list(orgId);
-      setProducts(data);
+      await refreshProducts();
       toast.success("Product deleted");
     } catch (err: any) {
       toast.error(err.message);
+    }
+  };
+
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMemberSubmitting(true);
+    try {
+      await api.organizations.addMember(orgId, {
+        email: memberEmail,
+        role: memberRole,
+      });
+      await refreshMembers();
+      setMemberEmail("");
+      setMemberRole("member");
+      toast.success("Member added");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setMemberSubmitting(false);
+    }
+  };
+
+  const formatRole = (role: string) =>
+    role
+      .split("_")
+      .map((segment) => segment[0].toUpperCase() + segment.slice(1))
+      .join(" ");
+
+  const handleRoleChange = (nextRole: string | null) => {
+    if (nextRole) {
+      setMemberRole(nextRole);
     }
   };
 
@@ -85,6 +158,111 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Users className="h-5 w-5" />
+              Organization Members
+            </CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Add existing ConfigHub users so they can access this organization.
+            </p>
+          </div>
+          <Badge variant={isOrgAdmin ? "default" : "outline"}>
+            {isOrgAdmin ? "Admin access" : "Member access"}
+          </Badge>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {isOrgAdmin ? (
+            <form
+              onSubmit={handleAddMember}
+              className="grid gap-4 rounded-xl border border-border/70 bg-muted/20 p-4 md:grid-cols-[minmax(0,1fr)_180px_140px]"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="member-email">User email</Label>
+                <Input
+                  id="member-email"
+                  type="email"
+                  placeholder="teammate@example.com"
+                  value={memberEmail}
+                  onChange={(e) => setMemberEmail(e.target.value)}
+                  required
+                  disabled={memberSubmitting}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="member-role">Role</Label>
+                <Select value={memberRole} onValueChange={handleRoleChange}>
+                  <SelectTrigger
+                    id="member-role"
+                    className="h-9 w-full"
+                    disabled={memberSubmitting}
+                  >
+                    <span className="truncate">{formatRole(memberRole)}</span>
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="billing_manager">
+                      Billing Manager
+                    </SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:self-end">
+                <Label className="invisible">Add</Label>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={memberSubmitting}
+                >
+                  {memberSubmitting ? "Adding..." : "Add Member"}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+              Only organization admins can add members. Ask an admin to invite
+              teammates by email.
+            </div>
+          )}
+
+          {membersLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : members.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border/70 p-6 text-sm text-muted-foreground">
+              No members found for this organization yet.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {members.map((member) => (
+                  <TableRow key={member.id}>
+                    <TableCell className="font-medium">
+                      {member.user?.name || "Unknown user"}
+                    </TableCell>
+                    <TableCell>{member.user?.email || "Unknown email"}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{formatRole(member.role)}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Products</h1>

@@ -75,6 +75,11 @@ export const api = {
       request<void>(`/api/v1/organizations/${id}`, { method: "DELETE" }),
     members: (id: string) =>
       request<OrgMember[]>(`/api/v1/organizations/${id}/members`),
+    addMember: (id: string, data: { email: string; role: string }) =>
+      request<OrgMember>(`/api/v1/organizations/${id}/members`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
   },
 
   // ── Products ──
