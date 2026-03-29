@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,8 +22,10 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
+  const busy = loading || googleLoading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +38,17 @@ export default function LoginPage() {
       toast.error(err.message || "Login failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleCredential = async (credential: string) => {
+    setGoogleLoading(true);
+    try {
+      await loginWithGoogle(credential);
+      router.push("/");
+      toast.success("Welcome back!");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -60,6 +74,7 @@ export default function LoginPage() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={busy}
                 required
               />
             </div>
@@ -71,13 +86,27 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={busy}
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={busy}>
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
+          <div className="my-4 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              Or
+            </span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <GoogleSignInButton
+            disabled={busy}
+            text="signin_with"
+            fallbackLabel="Continue with Google"
+            onCredential={handleGoogleCredential}
+          />
           <p className="mt-4 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link

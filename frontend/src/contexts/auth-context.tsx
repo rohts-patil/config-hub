@@ -13,6 +13,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<void>;
   register: (email: string, name: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -22,6 +23,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const authenticateWithToken = useCallback(async (accessToken: string) => {
+    localStorage.setItem("token", accessToken);
+    const nextUser = await api.auth.me();
+    setUser(nextUser);
+  }, []);
 
   const fetchUser = useCallback(async () => {
     try {
@@ -46,16 +53,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const res = await api.auth.login({ email, password });
-    localStorage.setItem("token", res.access_token);
-    const u = await api.auth.me();
-    setUser(u);
+    await authenticateWithToken(res.access_token);
+  };
+
+  const loginWithGoogle = async (credential: string) => {
+    const res = await api.auth.google({ credential });
+    await authenticateWithToken(res.access_token);
   };
 
   const register = async (email: string, name: string, password: string) => {
     const res = await api.auth.register({ email, name, password });
-    localStorage.setItem("token", res.access_token);
-    const u = await api.auth.me();
-    setUser(u);
+    await authenticateWithToken(res.access_token);
   };
 
   const logout = () => {
@@ -65,7 +73,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, loginWithGoogle, register, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

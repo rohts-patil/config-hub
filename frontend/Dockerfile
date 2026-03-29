@@ -16,6 +16,8 @@ RUN mkdir -p public
 # the user's machine (i.e. localhost, not the docker service name).
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=""
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
 RUN npm run build
 
@@ -30,4 +32,3 @@ COPY --from=builder /app/.next/static ./.next/static
 EXPOSE 3000
 
 CMD ["node", "server.js"]
-

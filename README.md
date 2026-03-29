@@ -175,6 +175,9 @@ NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
 Available at `http://localhost:3000`.
 </details>
 
+To enable "Sign in with Google", set the same Google web client ID in both
+`GOOGLE_CLIENT_ID` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` before starting the apps.
+
 <details>
 <summary><strong>SDKs</strong></summary>
 

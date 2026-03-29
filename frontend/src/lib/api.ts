@@ -49,6 +49,11 @@ export const api = {
         "/api/v1/auth/login",
         { method: "POST", body: JSON.stringify(data) }
       ),
+    google: (data: { credential: string }) =>
+      request<{ access_token: string; token_type: string }>(
+        "/api/v1/auth/google",
+        { method: "POST", body: JSON.stringify(data) }
+      ),
     me: () => request<User>("/api/v1/auth/me"),
   },
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,8 +23,10 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { loginWithGoogle, register } = useAuth();
   const router = useRouter();
+  const busy = loading || googleLoading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +39,17 @@ export default function RegisterPage() {
       toast.error(err.message || "Registration failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleCredential = async (credential: string) => {
+    setGoogleLoading(true);
+    try {
+      await loginWithGoogle(credential);
+      router.push("/");
+      toast.success("Welcome to ConfigHub!");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -58,6 +72,7 @@ export default function RegisterPage() {
                 placeholder="John Doe"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                disabled={busy}
                 required
               />
             </div>
@@ -69,6 +84,7 @@ export default function RegisterPage() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={busy}
                 required
               />
             </div>
@@ -80,14 +96,28 @@ export default function RegisterPage() {
                 placeholder="Min 8 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={busy}
                 required
                 minLength={8}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={busy}>
               {loading ? "Creating account..." : "Create Account"}
             </Button>
           </form>
+          <div className="my-4 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+              Or
+            </span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <GoogleSignInButton
+            disabled={busy}
+            text="signup_with"
+            fallbackLabel="Sign up with Google"
+            onCredential={handleGoogleCredential}
+          />
           <p className="mt-4 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link
