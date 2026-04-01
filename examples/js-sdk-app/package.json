@@ -1,0 +1,9 @@
+{
+  "name": "confighub-js-sdk-sample",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Sample JavaScript app using the ConfigHub JS SDK",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
