@@ -20,6 +20,20 @@ interface OrgMember {
   user?: User;
 }
 
+interface OrgInvite {
+  id: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+interface PermissionGroup {
+  id: string;
+  product_id: string;
+  name: string;
+  permissions: Record<string, boolean>;
+}
+
 // ── Product ──
 interface Product {
   id: string;

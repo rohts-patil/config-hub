@@ -14,6 +14,7 @@ import {
   ScrollText,
   Webhook,
   Settings,
+  ShieldCheck,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -70,6 +71,11 @@ export function Sidebar({ orgId, productId, configId }: SidebarProps) {
         label: "Tags",
         href: `/dashboard/${orgId}/${productId}/tags`,
         icon: Tag,
+      },
+      {
+        label: "Permissions",
+        href: `/dashboard/${orgId}/${productId}/permissions`,
+        icon: ShieldCheck,
       }
     );
   }

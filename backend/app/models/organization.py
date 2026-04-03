@@ -1,7 +1,7 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
-"""Organization and OrganizationMember models."""
+"""Organization, OrganizationMember, and OrganizationInvite models."""
 
 import uuid
 from datetime import datetime, timezone
@@ -45,6 +45,9 @@ class Organization(Base):
     audit_logs: Mapped[List["AuditLog"]] = relationship(
         back_populates="organization", cascade="all, delete-orphan"
     )  # noqa: F821
+    invites: Mapped[List["OrganizationInvite"]] = relationship(
+        back_populates="organization", cascade="all, delete-orphan"
+    )
 
 
 class OrganizationMember(Base):
@@ -66,3 +69,26 @@ class OrganizationMember(Base):
     # Relationships
     organization: Mapped["Organization"] = relationship(back_populates="members")
     user: Mapped["User"] = relationship(back_populates="memberships")  # noqa: F821
+
+
+class OrganizationInvite(Base):
+    __tablename__ = "organization_invites"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    role: Mapped[OrgRole] = mapped_column(
+        SAEnum(OrgRole), default=OrgRole.MEMBER, nullable=False
+    )
+    invited_by_user_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    organization: Mapped["Organization"] = relationship(back_populates="invites")

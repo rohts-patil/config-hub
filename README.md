@@ -40,6 +40,11 @@ Built for multi-tenancy from the ground up. Create separate organizations for di
 
 Switch between them instantly from the header dropdowns.
 
+Organization admins can now:
+- add existing users directly by email
+- create pending invites for teammates who have not signed up yet
+- update member roles and remove members with last-admin protection
+
 <p>
   <img src="docs/images/organizations_page_1774698506278.png" width="700" alt="Organizations" />
 </p>
@@ -115,6 +120,13 @@ Every action is tracked. See a chronological feed of who changed what across you
 </details>
 
 <details>
+<summary><strong>🛡️ Permission Groups</strong></summary>
+<br/>
+
+Define reusable permission groups for each product with a simple permission matrix covering flags, environments, segments, tags, SDK keys, webhooks, and audit visibility.
+</details>
+
+<details>
 <summary><strong>🔔 Webhooks</strong></summary>
 <br/>
 
@@ -178,6 +190,11 @@ Available at `http://localhost:3000`.
 To enable "Sign in with Google", set the same Google web client ID in both
 `GOOGLE_CLIENT_ID` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` before starting the apps.
 
+### Team onboarding
+
+- Existing users: open an organization and add them from the **Organization Members** panel.
+- New users: create a pending invite by email; the invite will be accepted automatically when they sign up later with that same email.
+
 <details>
 <summary><strong>SDKs</strong></summary>
 
@@ -238,6 +255,10 @@ Both SDKs support:
 - ⚡ On-demand config refresh
 - 🔄 Automatic polling for changes
 - 🧮 Client-side evaluation of targeting rules, segments & percentage rollouts
+
+Example apps are included for both SDKs:
+- JavaScript: [`examples/js-sdk-app`](examples/js-sdk-app)
+- Python: [`examples/python-sdk-app`](examples/python-sdk-app)
 
 ---
 

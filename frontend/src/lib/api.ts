@@ -89,6 +89,17 @@ export const api = {
       request<void>(`/api/v1/organizations/${id}/members/${memberId}`, {
         method: "DELETE",
       }),
+    invites: (id: string) =>
+      request<OrgInvite[]>(`/api/v1/organizations/${id}/invites`),
+    createInvite: (id: string, data: { email: string; role: string }) =>
+      request<OrgInvite>(`/api/v1/organizations/${id}/invites`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    deleteInvite: (id: string, inviteId: string) =>
+      request<void>(`/api/v1/organizations/${id}/invites/${inviteId}`, {
+        method: "DELETE",
+      }),
   },
 
   // ── Products ──
@@ -113,6 +124,36 @@ export const api = {
       }),
     delete: (orgId: string, id: string) =>
       request<void>(`/api/v1/organizations/${orgId}/products/${id}`, {
+        method: "DELETE",
+      }),
+  },
+
+  // ── Permission Groups ──
+  permissions: {
+    list: (productId: string) =>
+      request<PermissionGroup[]>(`/api/v1/products/${productId}/permissions`),
+    create: (
+      productId: string,
+      data: { name: string; permissions: Record<string, boolean> }
+    ) =>
+      request<PermissionGroup>(`/api/v1/products/${productId}/permissions`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (
+      productId: string,
+      groupId: string,
+      data: { name?: string; permissions?: Record<string, boolean> }
+    ) =>
+      request<PermissionGroup>(
+        `/api/v1/products/${productId}/permissions/${groupId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        }
+      ),
+    delete: (productId: string, groupId: string) =>
+      request<void>(`/api/v1/products/${productId}/permissions/${groupId}`, {
         method: "DELETE",
       }),
   },

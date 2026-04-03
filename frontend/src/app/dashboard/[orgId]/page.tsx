@@ -39,13 +39,19 @@ export default function ProductsPage() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [members, setMembers] = useState<OrgMember[]>([]);
+  const [invites, setInvites] = useState<OrgInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [membersLoading, setMembersLoading] = useState(true);
+  const [invitesLoading, setInvitesLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [memberEmail, setMemberEmail] = useState("");
   const [memberRole, setMemberRole] = useState("member");
   const [memberSubmitting, setMemberSubmitting] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("member");
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [inviteActionId, setInviteActionId] = useState<string | null>(null);
   const [memberActionId, setMemberActionId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const router = useRouter();
@@ -57,13 +63,18 @@ export default function ProductsPage() {
     let cancelled = false;
     const loadPage = async () => {
       try {
-        const [productData, memberData] = await Promise.all([
+        const invitePromise = api.organizations
+          .invites(orgId)
+          .catch(() => [] as OrgInvite[]);
+        const [productData, memberData, inviteData] = await Promise.all([
           api.products.list(orgId),
           api.organizations.members(orgId),
+          invitePromise,
         ]);
         if (!cancelled) {
           setProducts(productData);
           setMembers(memberData);
+          setInvites(inviteData);
         }
       } catch (err: any) {
         if (!cancelled) toast.error(err.message);
@@ -71,6 +82,7 @@ export default function ProductsPage() {
         if (!cancelled) {
           setLoading(false);
           setMembersLoading(false);
+          setInvitesLoading(false);
         }
       }
     };
@@ -83,6 +95,15 @@ export default function ProductsPage() {
   const refreshMembers = async () => {
     const data = await api.organizations.members(orgId);
     setMembers(data);
+  };
+
+  const refreshInvites = async () => {
+    if (!isOrgAdmin) {
+      setInvites([]);
+      return;
+    }
+    const data = await api.organizations.invites(orgId);
+    setInvites(data);
   };
 
   const refreshProducts = async () => {
@@ -150,6 +171,12 @@ export default function ProductsPage() {
     }
   };
 
+  const handleInviteRoleChange = (nextRole: string | null) => {
+    if (nextRole) {
+      setInviteRole(nextRole);
+    }
+  };
+
   const handleMemberRoleUpdate = async (
     memberId: string,
     nextRole: string | null,
@@ -189,6 +216,42 @@ export default function ProductsPage() {
     }
   };
 
+  const handleInviteCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviteSubmitting(true);
+    try {
+      await api.organizations.createInvite(orgId, {
+        email: inviteEmail,
+        role: inviteRole,
+      });
+      await refreshInvites();
+      setInviteEmail("");
+      setInviteRole("member");
+      toast.success("Invite created");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setInviteSubmitting(false);
+    }
+  };
+
+  const handleInviteDelete = async (invite: OrgInvite) => {
+    if (!confirm(`Revoke pending invite for "${invite.email}"?`)) {
+      return;
+    }
+
+    setInviteActionId(invite.id);
+    try {
+      await api.organizations.deleteInvite(orgId, invite.id);
+      await refreshInvites();
+      toast.success("Invite revoked");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setInviteActionId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -216,43 +279,48 @@ export default function ProductsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {isOrgAdmin ? (
-            <form
-              onSubmit={handleAddMember}
-              className="grid gap-4 rounded-xl border border-border/70 bg-muted/20 p-4 md:grid-cols-[minmax(0,1fr)_180px_140px]"
-            >
-              <div className="space-y-2">
-                <Label htmlFor="member-email">User email</Label>
-                <Input
-                  id="member-email"
-                  type="email"
-                  placeholder="teammate@example.com"
-                  value={memberEmail}
-                  onChange={(e) => setMemberEmail(e.target.value)}
-                  required
-                  disabled={memberSubmitting}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="member-role">Role</Label>
-                <Select value={memberRole} onValueChange={handleRoleChange}>
-                  <SelectTrigger
-                    id="member-role"
-                    className="h-9 w-full"
+            <div className="grid gap-4 lg:grid-cols-2">
+              <form
+                onSubmit={handleAddMember}
+                className="grid gap-4 rounded-xl border border-border/70 bg-muted/20 p-4"
+              >
+                <div>
+                  <h3 className="font-semibold">Add Existing User</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Use this when the teammate already has a ConfigHub account.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="member-email">User email</Label>
+                  <Input
+                    id="member-email"
+                    type="email"
+                    placeholder="teammate@example.com"
+                    value={memberEmail}
+                    onChange={(e) => setMemberEmail(e.target.value)}
+                    required
                     disabled={memberSubmitting}
-                  >
-                    <span className="truncate">{formatRole(memberRole)}</span>
-                  </SelectTrigger>
-                  <SelectContent align="start">
-                    <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="billing_manager">
-                      Billing Manager
-                    </SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 md:self-end">
-                <Label className="invisible">Add</Label>
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="member-role">Role</Label>
+                  <Select value={memberRole} onValueChange={handleRoleChange}>
+                    <SelectTrigger
+                      id="member-role"
+                      className="h-9 w-full"
+                      disabled={memberSubmitting}
+                    >
+                      <span className="truncate">{formatRole(memberRole)}</span>
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      <SelectItem value="member">Member</SelectItem>
+                      <SelectItem value="billing_manager">
+                        Billing Manager
+                      </SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button
                   type="submit"
                   className="w-full"
@@ -260,8 +328,59 @@ export default function ProductsPage() {
                 >
                   {memberSubmitting ? "Adding..." : "Add Member"}
                 </Button>
-              </div>
-            </form>
+              </form>
+
+              <form
+                onSubmit={handleInviteCreate}
+                className="grid gap-4 rounded-xl border border-border/70 bg-muted/20 p-4"
+              >
+                <div>
+                  <h3 className="font-semibold">Invite New User</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Create a pending invite that will be accepted automatically
+                    when this email signs up later.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-email">Invite email</Label>
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    placeholder="future-teammate@example.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    required
+                    disabled={inviteSubmitting}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-role">Role</Label>
+                  <Select value={inviteRole} onValueChange={handleInviteRoleChange}>
+                    <SelectTrigger
+                      id="invite-role"
+                      className="h-9 w-full"
+                      disabled={inviteSubmitting}
+                    >
+                      <span className="truncate">{formatRole(inviteRole)}</span>
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      <SelectItem value="member">Member</SelectItem>
+                      <SelectItem value="billing_manager">
+                        Billing Manager
+                      </SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={inviteSubmitting}
+                >
+                  {inviteSubmitting ? "Creating invite..." : "Create Invite"}
+                </Button>
+              </form>
+            </div>
           ) : (
             <div className="rounded-xl border border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
               Only organization admins can add members. Ask an admin to invite
@@ -351,6 +470,64 @@ export default function ProductsPage() {
           )}
         </CardContent>
       </Card>
+
+      {isOrgAdmin ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">Pending Invites</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Invites are matched by email and accepted automatically after that
+              person signs up or logs in.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {invitesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : invites.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border/70 p-6 text-sm text-muted-foreground">
+                No pending invites right now.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invites.map((invite) => (
+                    <TableRow key={invite.id}>
+                      <TableCell className="font-medium">{invite.email}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{formatRole(invite.role)}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(invite.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={inviteActionId === invite.id}
+                          onClick={() => handleInviteDelete(invite)}
+                        >
+                          Revoke
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="flex items-center justify-between">
         <div>

@@ -33,6 +33,7 @@ const PRODUCT_SECTION_ROUTES = new Set([
   "segments",
   "tags",
   "sdk-keys",
+  "permissions",
 ]);
 
 function getProductDestination(

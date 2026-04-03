@@ -12,6 +12,12 @@ Below you will find a visual walkthrough of the main capabilities, complete with
 
 Config-Hub is built for multi-tenancy. You can create multiple organizations to isolate users and billing, and within each organization, you can define multiple products.
 
+Organization admins can also manage teammates from the organization page:
+- add existing users by email
+- create pending invites for users who have not signed up yet
+- promote, demote, and remove members
+- keep at least one admin assigned at all times
+
 ![Organizations Overview](./images/organizations_page_1774698506278.png)
 ![Products Dashboard](./images/products_page_empty_1774698573146.png)
 ![Organization Selector](./images/organization_selector_dropdown_1774699327223.png)
@@ -60,6 +66,9 @@ Track every change made within your organization. Audit logs provide a comprehen
 
 ![Audit Logs](./images/audit_log_page_1774698820155.png)
 
+### Permission Groups
+Create reusable permission group templates for each product so teams can standardize which actions a role should be allowed to manage.
+
 ### Webhooks
 Set up webhooks to receive real-time notifications about events happening within your Config-Hub environment (e.g., when a feature flag is toggled or updated).
 
@@ -80,3 +89,12 @@ Manage your personal settings, password, and session directly from the profile d
 > **Note:** Below is a recorded video of the interface exploration covering all these primary features from start to finish.
 
 ![Dashboard Walkthrough Video](./images/dashboard_features_1774698421862.webp)
+
+---
+
+## SDK Sample Apps
+
+The repository also includes runnable sample integrations for both SDKs:
+
+- JavaScript sample app: `examples/js-sdk-app`
+- Python sample app: `examples/python-sdk-app`

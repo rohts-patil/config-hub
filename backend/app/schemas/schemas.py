@@ -94,6 +94,20 @@ class OrgMemberUpdate(BaseModel):
     role: str = Field(pattern=r"^(admin|billing_manager|member)$")
 
 
+class OrgInviteCreate(BaseModel):
+    email: EmailStr
+    role: str = Field(default="member", pattern=r"^(admin|billing_manager|member)$")
+
+
+class OrgInviteOut(BaseModel):
+    id: str
+    email: str
+    role: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 # ── Product ───────────────────────────────────────────────────────────────────
 
 

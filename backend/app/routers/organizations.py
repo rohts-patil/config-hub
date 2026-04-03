@@ -4,14 +4,21 @@ from typing import List
 """Organization router — CRUD + member management."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.user import User
-from app.models.organization import Organization, OrganizationMember, OrgRole
+from app.models.organization import (
+    Organization,
+    OrganizationInvite,
+    OrganizationMember,
+    OrgRole,
+)
 from app.schemas.schemas import (
+    OrgInviteCreate,
+    OrgInviteOut,
     OrgMemberCreate,
     OrgMemberUpdate,
     OrganizationCreate,
@@ -21,6 +28,7 @@ from app.schemas.schemas import (
 )
 from app.services.audit import record_audit
 from app.services.auth import get_current_user
+from app.services.invites import normalize_email
 
 router = APIRouter(prefix="/api/v1/organizations", tags=["Organizations"])
 
@@ -81,6 +89,21 @@ async def _get_member_by_id(
     if member is None:
         raise HTTPException(status_code=404, detail="Organization member not found")
     return member
+
+
+async def _get_invite_by_id(
+    org_id: str, invite_id: str, db: AsyncSession
+) -> OrganizationInvite:
+    result = await db.execute(
+        select(OrganizationInvite).where(
+            OrganizationInvite.organization_id == org_id,
+            OrganizationInvite.id == invite_id,
+        )
+    )
+    invite = result.scalar_one_or_none()
+    if invite is None:
+        raise HTTPException(status_code=404, detail="Organization invite not found")
+    return invite
 
 
 async def _count_org_admins(org_id: str, db: AsyncSession) -> int:
@@ -205,8 +228,10 @@ async def add_member(
     current_user: User = Depends(get_current_user),
 ):
     await _require_org_admin(org_id, current_user, db)
-
-    user_result = await db.execute(select(User).where(User.email == body.email))
+    normalized_email = normalize_email(body.email)
+    user_result = await db.execute(
+        select(User).where(func.lower(User.email) == normalized_email)
+    )
     invited_user = user_result.scalar_one_or_none()
     if invited_user is None:
         raise HTTPException(
@@ -250,6 +275,106 @@ async def add_member(
     )
 
     return created_member
+
+
+@router.get("/{org_id}/invites", response_model=List[OrgInviteOut])
+async def list_invites(
+    org_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _require_org_admin(org_id, current_user, db)
+    result = await db.execute(
+        select(OrganizationInvite)
+        .where(OrganizationInvite.organization_id == org_id)
+        .order_by(OrganizationInvite.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.post(
+    "/{org_id}/invites",
+    response_model=OrgInviteOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_invite(
+    org_id: str,
+    body: OrgInviteCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _require_org_admin(org_id, current_user, db)
+    normalized_email = normalize_email(body.email)
+
+    user_result = await db.execute(
+        select(User).where(func.lower(User.email) == normalized_email)
+    )
+    existing_user = user_result.scalar_one_or_none()
+    if existing_user is not None:
+        membership = await _get_org_membership(org_id, existing_user.id, db)
+        if membership is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="That user is already a member of this organization",
+            )
+        raise HTTPException(
+            status_code=400,
+            detail="That user already has an account. Add them as a member instead.",
+        )
+
+    invite_result = await db.execute(
+        select(OrganizationInvite).where(
+            OrganizationInvite.organization_id == org_id,
+            func.lower(OrganizationInvite.email) == normalized_email,
+        )
+    )
+    if invite_result.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="There is already a pending invite for that email",
+        )
+
+    invite = OrganizationInvite(
+        organization_id=org_id,
+        email=normalized_email,
+        role=OrgRole(body.role),
+        invited_by_user_id=current_user.id,
+    )
+    db.add(invite)
+    await db.flush()
+
+    await record_audit(
+        db,
+        org_id,
+        current_user.id,
+        "created",
+        "organization_invite",
+        entity_id=invite.id,
+        new_value={"email": invite.email, "role": invite.role.value},
+    )
+    return invite
+
+
+@router.delete("/{org_id}/invites/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_invite(
+    org_id: str,
+    invite_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _require_org_admin(org_id, current_user, db)
+    invite = await _get_invite_by_id(org_id, invite_id, db)
+
+    await record_audit(
+        db,
+        org_id,
+        current_user.id,
+        "deleted",
+        "organization_invite",
+        entity_id=invite.id,
+        old_value={"email": invite.email, "role": invite.role.value},
+    )
+    await db.delete(invite)
 
 
 @router.patch("/{org_id}/members/{member_id}", response_model=OrgMemberOut)
