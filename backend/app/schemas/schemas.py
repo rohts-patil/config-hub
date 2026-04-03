@@ -90,6 +90,10 @@ class OrgMemberCreate(BaseModel):
     role: str = Field(default="member", pattern=r"^(admin|billing_manager|member)$")
 
 
+class OrgMemberUpdate(BaseModel):
+    role: str = Field(pattern=r"^(admin|billing_manager|member)$")
+
+
 # ── Product ───────────────────────────────────────────────────────────────────
 
 

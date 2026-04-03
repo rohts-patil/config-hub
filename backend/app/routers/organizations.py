@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.organization import Organization, OrganizationMember, OrgRole
 from app.schemas.schemas import (
     OrgMemberCreate,
+    OrgMemberUpdate,
     OrganizationCreate,
     OrganizationUpdate,
     OrganizationOut,
@@ -65,6 +66,55 @@ async def _require_org_admin(
     return org
 
 
+async def _get_member_by_id(
+    org_id: str, member_id: str, db: AsyncSession
+) -> OrganizationMember:
+    result = await db.execute(
+        select(OrganizationMember)
+        .options(selectinload(OrganizationMember.user))
+        .where(
+            OrganizationMember.organization_id == org_id,
+            OrganizationMember.id == member_id,
+        )
+    )
+    member = result.scalar_one_or_none()
+    if member is None:
+        raise HTTPException(status_code=404, detail="Organization member not found")
+    return member
+
+
+async def _count_org_admins(org_id: str, db: AsyncSession) -> int:
+    result = await db.execute(
+        select(OrganizationMember).where(
+            OrganizationMember.organization_id == org_id,
+            OrganizationMember.role == OrgRole.ADMIN,
+        )
+    )
+    return len(result.scalars().all())
+
+
+async def _ensure_member_change_keeps_admin(
+    org_id: str,
+    member: OrganizationMember,
+    db: AsyncSession,
+    *,
+    next_role: OrgRole | None = None,
+) -> None:
+    removing_admin_role = (
+        member.role == OrgRole.ADMIN and next_role is not None and next_role != OrgRole.ADMIN
+    )
+    removing_member = member.role == OrgRole.ADMIN and next_role is None
+    if not removing_admin_role and not removing_member:
+        return
+
+    admin_count = await _count_org_admins(org_id, db)
+    if admin_count <= 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Organizations must always have at least one admin",
+        )
+
+
 @router.get("", response_model=List[OrganizationOut])
 async def list_organizations(
     db: AsyncSession = Depends(get_db),
@@ -112,7 +162,7 @@ async def update_organization(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org = await _get_org_as_member(org_id, current_user, db)
+    org = await _require_org_admin(org_id, current_user, db)
     org.name = body.name
     await db.flush()
     return org
@@ -124,7 +174,7 @@ async def delete_organization(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    org = await _get_org_as_member(org_id, current_user, db)
+    org = await _require_org_admin(org_id, current_user, db)
     await db.delete(org)
 
 
@@ -200,3 +250,72 @@ async def add_member(
     )
 
     return created_member
+
+
+@router.patch("/{org_id}/members/{member_id}", response_model=OrgMemberOut)
+async def update_member(
+    org_id: str,
+    member_id: str,
+    body: OrgMemberUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _require_org_admin(org_id, current_user, db)
+    member = await _get_member_by_id(org_id, member_id, db)
+    next_role = OrgRole(body.role)
+    if member.role == next_role:
+        return member
+
+    await _ensure_member_change_keeps_admin(
+        org_id,
+        member,
+        db,
+        next_role=next_role,
+    )
+
+    old_role = member.role
+    member.role = next_role
+    await db.flush()
+
+    await record_audit(
+        db,
+        org_id,
+        current_user.id,
+        "updated",
+        "organization_member",
+        entity_id=member.id,
+        old_value={"role": old_role.value, "user_id": member.user_id},
+        new_value={"role": member.role.value, "user_id": member.user_id},
+    )
+
+    refreshed_member = await _get_member_by_id(org_id, member.id, db)
+    return refreshed_member
+
+
+@router.delete("/{org_id}/members/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_member(
+    org_id: str,
+    member_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _require_org_admin(org_id, current_user, db)
+    member = await _get_member_by_id(org_id, member_id, db)
+
+    await _ensure_member_change_keeps_admin(org_id, member, db)
+
+    await record_audit(
+        db,
+        org_id,
+        current_user.id,
+        "deleted",
+        "organization_member",
+        entity_id=member.id,
+        old_value={
+            "role": member.role.value,
+            "user_id": member.user_id,
+            "email": member.user.email if member.user else None,
+        },
+    )
+
+    await db.delete(member)

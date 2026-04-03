@@ -80,6 +80,15 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    updateMember: (id: string, memberId: string, data: { role: string }) =>
+      request<OrgMember>(`/api/v1/organizations/${id}/members/${memberId}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    deleteMember: (id: string, memberId: string) =>
+      request<void>(`/api/v1/organizations/${id}/members/${memberId}`, {
+        method: "DELETE",
+      }),
   },
 
   // ── Products ──

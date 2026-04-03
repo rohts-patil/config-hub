@@ -46,10 +46,12 @@ export default function ProductsPage() {
   const [memberEmail, setMemberEmail] = useState("");
   const [memberRole, setMemberRole] = useState("member");
   const [memberSubmitting, setMemberSubmitting] = useState(false);
+  const [memberActionId, setMemberActionId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const router = useRouter();
   const currentMembership = members.find((member) => member.user_id === user?.id);
   const isOrgAdmin = currentMembership?.role === "admin";
+  const adminCount = members.filter((member) => member.role === "admin").length;
 
   useEffect(() => {
     let cancelled = false;
@@ -148,6 +150,45 @@ export default function ProductsPage() {
     }
   };
 
+  const handleMemberRoleUpdate = async (
+    memberId: string,
+    nextRole: string | null,
+    currentRole: string
+  ) => {
+    if (!nextRole || nextRole === currentRole) {
+      return;
+    }
+
+    setMemberActionId(memberId);
+    try {
+      await api.organizations.updateMember(orgId, memberId, { role: nextRole });
+      await refreshMembers();
+      toast.success("Member role updated");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setMemberActionId(null);
+    }
+  };
+
+  const handleMemberRemove = async (member: OrgMember) => {
+    const label = member.user?.email || member.id;
+    if (!confirm(`Remove "${label}" from this organization?`)) {
+      return;
+    }
+
+    setMemberActionId(member.id);
+    try {
+      await api.organizations.deleteMember(orgId, member.id);
+      await refreshMembers();
+      toast.success("Member removed");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setMemberActionId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -243,18 +284,66 @@ export default function ProductsPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
+                  {isOrgAdmin ? <TableHead>Actions</TableHead> : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {members.map((member) => (
                   <TableRow key={member.id}>
                     <TableCell className="font-medium">
-                      {member.user?.name || "Unknown user"}
+                      <div className="flex items-center gap-2">
+                        <span>{member.user?.name || "Unknown user"}</span>
+                        {member.user_id === user?.id ? (
+                          <Badge variant="secondary">You</Badge>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>{member.user?.email || "Unknown email"}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{formatRole(member.role)}</Badge>
+                      {isOrgAdmin ? (
+                        <Select
+                          value={member.role}
+                          onValueChange={(nextRole) =>
+                            handleMemberRoleUpdate(member.id, nextRole, member.role)
+                          }
+                          disabled={
+                            memberActionId === member.id ||
+                            (member.role === "admin" && adminCount === 1)
+                          }
+                        >
+                          <SelectTrigger className="h-9 w-full min-w-[170px]">
+                            <span className="truncate">
+                              {formatRole(member.role)}
+                            </span>
+                          </SelectTrigger>
+                          <SelectContent align="start">
+                            <SelectItem value="member">Member</SelectItem>
+                            <SelectItem value="billing_manager">
+                              Billing Manager
+                            </SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge variant="outline">{formatRole(member.role)}</Badge>
+                      )}
                     </TableCell>
+                    {isOrgAdmin ? (
+                      <TableCell>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={
+                            memberActionId === member.id ||
+                            (member.role === "admin" && adminCount === 1)
+                          }
+                          onClick={() => handleMemberRemove(member)}
+                        >
+                          Remove
+                        </Button>
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 ))}
               </TableBody>
