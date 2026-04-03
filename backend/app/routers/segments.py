@@ -73,6 +73,7 @@ async def create_segment(
             current_user.id,
             "created",
             "segment",
+            product_id=product_id,
             entity_id=segment.id,
             new_value={"name": segment.name, "description": segment.description},
         )
@@ -140,6 +141,7 @@ async def update_segment(
             current_user.id,
             "updated",
             "segment",
+            product_id=product_id,
             entity_id=segment.id,
             old_value=old_value,
             new_value={"name": segment.name, "description": segment.description},
@@ -171,6 +173,7 @@ async def delete_segment(
             current_user.id,
             "deleted",
             "segment",
+            product_id=product_id,
             entity_id=segment.id,
             old_value={"name": segment.name, "description": segment.description},
         )

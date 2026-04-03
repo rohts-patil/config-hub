@@ -30,6 +30,7 @@ async def record_audit(
     user_id: str,
     action: str,
     entity_type: str,
+    product_id: Optional[str] = None,
     entity_id: Optional[str] = None,
     old_value: Optional[dict] = None,
     new_value: Optional[dict] = None,
@@ -38,6 +39,7 @@ async def record_audit(
     """Insert an audit log entry. Should be called inside the same transaction."""
     entry = AuditLog(
         organization_id=org_id,
+        product_id=product_id,
         user_id=user_id,
         action=action,
         entity_type=entity_type,
@@ -74,4 +76,13 @@ async def get_org_id_for_config(db: AsyncSession, config_id: str) -> Optional[st
         .join(Config, Config.product_id == Product.id)
         .where(Config.id == config_id)
     )
+    return result.scalar_one_or_none()
+
+
+async def get_product_id_for_config(db: AsyncSession, config_id: str) -> Optional[str]:
+    """Resolve config_id → product_id."""
+    from app.models.config import Config
+    from sqlalchemy import select
+
+    result = await db.execute(select(Config.product_id).where(Config.id == config_id))
     return result.scalar_one_or_none()

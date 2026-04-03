@@ -85,6 +85,7 @@ async def create_config(
             current_user.id,
             "created",
             "config",
+            product_id=product_id,
             entity_id=config.id,
             new_value={"name": config.name},
         )
@@ -134,6 +135,7 @@ async def update_config(
             current_user.id,
             "updated",
             "config",
+            product_id=product_id,
             entity_id=config.id,
             old_value=old_value,
             new_value={"name": config.name, "order": config.order},
@@ -165,6 +167,7 @@ async def delete_config(
             current_user.id,
             "deleted",
             "config",
+            product_id=product_id,
             entity_id=config.id,
             old_value={"name": config.name},
         )
@@ -223,6 +226,7 @@ async def create_environment(
             current_user.id,
             "created",
             "environment",
+            product_id=product_id,
             entity_id=env.id,
             new_value={"name": env.name, "color": env.color},
         )
@@ -269,6 +273,7 @@ async def update_environment(
             current_user.id,
             "updated",
             "environment",
+            product_id=product_id,
             entity_id=env.id,
             old_value=old_value,
             new_value={"name": env.name, "color": env.color, "order": env.order},
@@ -307,6 +312,7 @@ async def delete_environment(
             current_user.id,
             "deleted",
             "environment",
+            product_id=product_id,
             entity_id=env.id,
             old_value={"name": env.name, "color": env.color},
         )
@@ -370,6 +376,7 @@ async def create_sdk_key(
             current_user.id,
             "created",
             "sdk_key",
+            product_id=product_id,
             entity_id=sdk_key.id,
             new_value={
                 "config_name": config.name,
@@ -404,6 +411,7 @@ async def revoke_sdk_key(
             current_user.id,
             "updated",
             "sdk_key",
+            product_id=product_id,
             entity_id=sdk_key.id,
             new_value={"status": "revoked"},
         )
@@ -429,6 +437,7 @@ async def delete_sdk_key(
             current_user.id,
             "deleted",
             "sdk_key",
+            product_id=product_id,
             entity_id=sdk_key.id,
             old_value={"status": "revoked" if sdk_key.revoked else "active"},
         )

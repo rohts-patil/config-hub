@@ -200,3 +200,53 @@ async def require_environment_permission(
     env = await require_environment_member(db, env_id, user, product_id=product_id)
     await require_product_permission(db, env.product_id, user, permission_key)
     return env
+
+
+async def get_org_product_ids_with_permission(
+    db: AsyncSession,
+    org_id: str,
+    user: User,
+    permission_key: PermissionKey,
+) -> set[str] | None:
+    await require_org_member(db, org_id, user)
+    membership = await get_org_membership(db, org_id, user.id)
+    if membership is None:
+        raise HTTPException(status_code=403, detail="Not a member of this organization")
+
+    if membership.role == OrgRole.ADMIN:
+        return None
+
+    products_result = await db.execute(
+        select(Product.id).where(Product.organization_id == org_id)
+    )
+    org_product_ids = set(products_result.scalars().all())
+    if not org_product_ids:
+        return set()
+
+    groups_result = await db.execute(
+        select(PermissionGroup).where(PermissionGroup.product_id.in_(org_product_ids))
+    )
+    permission_groups = groups_result.scalars().all()
+    grouped_product_ids = {group.product_id for group in permission_groups}
+
+    if not grouped_product_ids:
+        return None
+
+    accessible_product_ids = org_product_ids - grouped_product_ids
+
+    assignment_result = await db.execute(
+        select(ProductPermissionAssignment)
+        .options(selectinload(ProductPermissionAssignment.permission_group))
+        .where(
+            ProductPermissionAssignment.organization_member_id == membership.id,
+            ProductPermissionAssignment.product_id.in_(org_product_ids),
+        )
+    )
+    for assignment in assignment_result.scalars().all():
+        if (
+            assignment.permission_group
+            and assignment.permission_group.permissions.get(permission_key)
+        ):
+            accessible_product_ids.add(assignment.product_id)
+
+    return accessible_product_ids

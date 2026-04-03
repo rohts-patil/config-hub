@@ -47,6 +47,7 @@ async def create_product(
         current_user.id,
         "created",
         "product",
+        product_id=product.id,
         entity_id=product.id,
         new_value={"name": product.name, "description": product.description},
     )
@@ -101,6 +102,7 @@ async def update_product(
         current_user.id,
         "updated",
         "product",
+        product_id=product.id,
         entity_id=product.id,
         old_value=old_value,
         new_value={"name": product.name, "description": product.description},
@@ -130,6 +132,7 @@ async def delete_product(
         current_user.id,
         "deleted",
         "product",
+        product_id=product.id,
         entity_id=product.id,
         old_value={"name": product.name, "description": product.description},
     )

@@ -30,8 +30,12 @@ from app.schemas.schemas import (
     TargetingRuleIn,
 )
 from app.services.auth import get_current_user
-from app.services.audit import record_audit, get_org_id_for_config
-from app.services.authz import require_config_member, require_config_permission, require_environment_member
+from app.services.audit import get_org_id_for_config, get_product_id_for_config, record_audit
+from app.services.authz import (
+    require_config_member,
+    require_config_permission,
+    require_environment_member,
+)
 from app.services.webhook import dispatch_webhooks
 
 router = APIRouter(prefix="/api/v1/configs/{config_id}/settings", tags=["Settings"])
@@ -111,6 +115,7 @@ async def create_setting(
             current_user.id,
             "created",
             "setting",
+            product_id=config_obj.product_id,
             entity_id=setting.id,
             new_value={"key": setting.key, "name": setting.name, "type": s_type.value},
         )
@@ -156,6 +161,7 @@ async def update_setting(
     await db.flush()
 
     org_id = await get_org_id_for_config(db, config_id)
+    product_id = await get_product_id_for_config(db, config_id)
     if org_id:
         await record_audit(
             db,
@@ -163,6 +169,7 @@ async def update_setting(
             current_user.id,
             "updated",
             "setting",
+            product_id=product_id,
             entity_id=setting.id,
             old_value=old_value,
             new_value={
@@ -186,6 +193,7 @@ async def delete_setting(
     await require_config_permission(db, config_id, current_user, "canManageFlags")
 
     org_id = await get_org_id_for_config(db, config_id)
+    product_id = await get_product_id_for_config(db, config_id)
     if org_id:
         await record_audit(
             db,
@@ -193,6 +201,7 @@ async def delete_setting(
             current_user.id,
             "deleted",
             "setting",
+            product_id=product_id,
             entity_id=setting.id,
             old_value={"key": setting.key, "name": setting.name},
         )
@@ -314,6 +323,7 @@ async def update_setting_value(
             current_user.id,
             "updated",
             "setting_value",
+            product_id=config_obj.product_id,
             entity_id=sv.id,
             old_value=old_state,
             new_value=new_state,

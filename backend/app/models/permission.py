@@ -147,6 +147,7 @@ class AuditLog(Base):
     organization_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
+    product_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     user_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

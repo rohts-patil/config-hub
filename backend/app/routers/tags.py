@@ -48,6 +48,7 @@ async def create_tag(
             current_user.id,
             "created",
             "tag",
+            product_id=product_id,
             entity_id=tag.id,
             new_value={"name": tag.name, "color": tag.color},
         )
@@ -76,6 +77,7 @@ async def delete_tag(
             current_user.id,
             "deleted",
             "tag",
+            product_id=product_id,
             entity_id=tag.id,
             old_value={"name": tag.name, "color": tag.color},
         )

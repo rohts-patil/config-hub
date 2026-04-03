@@ -54,6 +54,7 @@ async def create_webhook(
             current_user.id,
             "created",
             "webhook",
+            product_id=product_id,
             entity_id=webhook.id,
             new_value={
                 "url": webhook.url,
@@ -124,6 +125,7 @@ async def update_webhook(
             current_user.id,
             "updated",
             "webhook",
+            product_id=product_id,
             entity_id=webhook.id,
             old_value=old_value,
             new_value={
@@ -160,6 +162,7 @@ async def delete_webhook(
             current_user.id,
             "deleted",
             "webhook",
+            product_id=product_id,
             entity_id=webhook.id,
             old_value={
                 "url": webhook.url,

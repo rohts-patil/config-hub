@@ -55,3 +55,16 @@ def _run_startup_migrations(sync_conn) -> None:
                 "ON users (google_sub)"
             )
         )
+
+    if inspector.has_table("audit_logs"):
+        audit_columns = {
+            column["name"] for column in inspector.get_columns("audit_logs")
+        }
+        if "product_id" not in audit_columns:
+            sync_conn.execute(text("ALTER TABLE audit_logs ADD COLUMN product_id VARCHAR(36)"))
+        sync_conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_audit_logs_product_id "
+                "ON audit_logs (product_id)"
+            )
+        )

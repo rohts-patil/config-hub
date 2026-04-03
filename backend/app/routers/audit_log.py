@@ -10,30 +10,26 @@ from sqlalchemy.orm import selectinload
 
 from app.models.config import Config
 from app.models.environment import Environment
+from app.models.organization import OrganizationInvite, OrganizationMember
+from app.models.permission import (
+    AuditLog,
+    PermissionGroup,
+    SDKKey,
+    Tag,
+    Webhook,
+)
 from app.models.product import Product
 from app.models.segment import Segment
 from app.models.setting import Setting, SettingValue
 from app.database import get_db
-from app.models.permission import AuditLog, Tag, Webhook
-from app.models.organization import OrganizationMember
 from app.models.user import User
 from app.schemas.schemas import AuditLogOut
 from app.services.auth import get_current_user
+from app.services.authz import get_org_product_ids_with_permission, require_org_member
 
 router = APIRouter(
     prefix="/api/v1/organizations/{org_id}/audit-log", tags=["Audit Log"]
 )
-
-
-async def _require_org_member(org_id: str, user: User, db: AsyncSession):
-    result = await db.execute(
-        select(OrganizationMember).where(
-            OrganizationMember.organization_id == org_id,
-            OrganizationMember.user_id == user.id,
-        )
-    )
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=403, detail="Not a member of this organization")
 
 
 @router.get("", response_model=List[AuditLogOut])
@@ -46,7 +42,17 @@ async def list_audit_logs(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await _require_org_member(org_id, current_user, db)
+    await require_org_member(db, org_id, current_user)
+    accessible_product_ids = await get_org_product_ids_with_permission(
+        db, org_id, current_user, "canViewAuditLog"
+    )
+
+    if accessible_product_ids == set():
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to view this organization's audit log",
+        )
+
     query = (
         select(AuditLog)
         .options(selectinload(AuditLog.user))
@@ -56,7 +62,13 @@ async def list_audit_logs(
         query = query.where(AuditLog.entity_type == entity_type)
     if action:
         query = query.where(AuditLog.action == action)
-    query = query.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)
+    query = query.order_by(AuditLog.created_at.desc())
+    if accessible_product_ids is not None:
+        query = query.where(AuditLog.product_id.in_(accessible_product_ids))
+        query = query.offset(offset).limit(limit)
+    else:
+        query = query.offset(offset).limit(limit)
+
     result = await db.execute(query)
     logs = result.scalars().all()
     context_by_entity_id = await _build_audit_context(db, logs)
@@ -137,12 +149,74 @@ async def _build_audit_context(
                 "entity_name": tag.name,
             }
 
+    if sdk_key_ids := entity_ids_by_type.get("sdk_key"):
+        result = await db.execute(
+            select(SDKKey)
+            .options(selectinload(SDKKey.config), selectinload(SDKKey.environment))
+            .where(SDKKey.id.in_(sdk_key_ids))
+        )
+        for sdk_key in result.scalars().all():
+            config_name = sdk_key.config.name if sdk_key.config else None
+            environment_name = sdk_key.environment.name if sdk_key.environment else None
+            label_parts = [part for part in [config_name, environment_name] if part]
+            context_by_entity_id[sdk_key.id] = {
+                "entity_label": " / ".join(label_parts) if label_parts else None,
+                "config_name": config_name,
+                "environment_name": environment_name,
+            }
+
     if webhook_ids := entity_ids_by_type.get("webhook"):
         result = await db.execute(select(Webhook).where(Webhook.id.in_(webhook_ids)))
         for webhook in result.scalars().all():
             context_by_entity_id[webhook.id] = {
                 "entity_label": webhook.url,
                 "entity_name": webhook.url,
+            }
+
+    if permission_group_ids := entity_ids_by_type.get("permission_group"):
+        result = await db.execute(
+            select(PermissionGroup).where(PermissionGroup.id.in_(permission_group_ids))
+        )
+        for group in result.scalars().all():
+            context_by_entity_id[group.id] = {
+                "entity_label": group.name,
+                "entity_name": group.name,
+            }
+
+    if member_ids := entity_ids_by_type.get("organization_member"):
+        result = await db.execute(
+            select(OrganizationMember)
+            .options(selectinload(OrganizationMember.user))
+            .where(OrganizationMember.id.in_(member_ids))
+        )
+        for member in result.scalars().all():
+            user_label = member.user.email if member.user else None
+            context_by_entity_id[member.id] = {
+                "entity_label": user_label,
+                "entity_name": user_label,
+            }
+
+    if assignment_member_ids := entity_ids_by_type.get("permission_assignment"):
+        result = await db.execute(
+            select(OrganizationMember)
+            .options(selectinload(OrganizationMember.user))
+            .where(OrganizationMember.id.in_(assignment_member_ids))
+        )
+        for member in result.scalars().all():
+            user_label = member.user.email if member.user else None
+            context_by_entity_id[member.id] = {
+                "entity_label": user_label,
+                "entity_name": user_label,
+            }
+
+    if invite_ids := entity_ids_by_type.get("organization_invite"):
+        result = await db.execute(
+            select(OrganizationInvite).where(OrganizationInvite.id.in_(invite_ids))
+        )
+        for invite in result.scalars().all():
+            context_by_entity_id[invite.id] = {
+                "entity_label": invite.email,
+                "entity_name": invite.email,
             }
 
     if setting_value_ids := entity_ids_by_type.get("setting_value"):

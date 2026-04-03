@@ -77,6 +77,7 @@ async def create_permission_group(
             current_user.id,
             "created",
             "permission_group",
+            product_id=product_id,
             entity_id=pg.id,
             new_value={"name": pg.name, "permissions": pg.permissions},
         )
@@ -115,6 +116,7 @@ async def update_permission_group(
             current_user.id,
             "updated",
             "permission_group",
+            product_id=product_id,
             entity_id=pg.id,
             old_value=old_value,
             new_value={"name": pg.name, "permissions": pg.permissions},
@@ -147,6 +149,7 @@ async def delete_permission_group(
             current_user.id,
             "deleted",
             "permission_group",
+            product_id=product_id,
             entity_id=pg.id,
             old_value={"name": pg.name, "permissions": pg.permissions},
         )
@@ -246,6 +249,7 @@ async def update_product_member_access(
             current_user.id,
             "updated",
             "permission_assignment",
+            product_id=product_id,
             entity_id=member.id,
             old_value=old_value,
             new_value=_serialize_assignment_audit(assignment),

@@ -19,6 +19,8 @@ import { History, ChevronDown } from "lucide-react";
 const ENTITY_TYPES = [
   "all",
   "organization",
+  "organization_member",
+  "organization_invite",
   "product",
   "config",
   "environment",
@@ -26,7 +28,10 @@ const ENTITY_TYPES = [
   "setting_value",
   "segment",
   "tag",
+  "sdk_key",
   "webhook",
+  "permission_group",
+  "permission_assignment",
 ];
 
 function humanizeLabel(value: string) {
@@ -224,6 +229,7 @@ export default function AuditLogPage() {
   const { orgId } = useParams() as { orgId: string };
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
   const [offset, setOffset] = useState(0);
   const limit = 50;
@@ -233,6 +239,7 @@ export default function AuditLogPage() {
     setLoading(true);
     const loadLogs = async () => {
       try {
+        setErrorMessage(null);
         const data = await api.auditLog.list(orgId, {
           entity_type: filter === "all" ? undefined : filter,
           limit,
@@ -242,7 +249,12 @@ export default function AuditLogPage() {
         setEntries(data);
         setOffset(limit);
       } catch (err: any) {
-        if (!cancelled) toast.error(err.message);
+        if (!cancelled) {
+          setEntries([]);
+          setOffset(0);
+          setErrorMessage(err.message);
+          toast.error(err.message);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -279,6 +291,19 @@ export default function AuditLogPage() {
       <div className="flex items-center justify-center py-12">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
+    );
+
+  if (errorMessage)
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <History className="mb-4 h-12 w-12 text-muted-foreground/50" />
+          <p className="font-medium">Audit log unavailable</p>
+          <p className="mt-2 max-w-lg text-sm text-muted-foreground">
+            {errorMessage}
+          </p>
+        </CardContent>
+      </Card>
     );
 
   return (
