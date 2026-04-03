@@ -68,3 +68,22 @@ def _run_startup_migrations(sync_conn) -> None:
                 "ON audit_logs (product_id)"
             )
         )
+
+    if inspector.has_table("organization_invites"):
+        invite_columns = {
+            column["name"] for column in inspector.get_columns("organization_invites")
+        }
+        if "email_sent_at" not in invite_columns:
+            sync_conn.execute(
+                text(
+                    "ALTER TABLE organization_invites "
+                    "ADD COLUMN email_sent_at DATETIME"
+                )
+            )
+        if "last_email_error" not in invite_columns:
+            sync_conn.execute(
+                text(
+                    "ALTER TABLE organization_invites "
+                    "ADD COLUMN last_email_error TEXT"
+                )
+            )

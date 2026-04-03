@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, List, Optional
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, DateTime, ForeignKey, Enum as SAEnum
+from sqlalchemy import String, DateTime, ForeignKey, Enum as SAEnum, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
@@ -94,5 +94,9 @@ class OrganizationInvite(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+    email_sent_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_email_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     organization: Mapped["Organization"] = relationship(back_populates="invites")

@@ -104,6 +104,8 @@ class OrgInviteOut(BaseModel):
     email: str
     role: str
     created_at: datetime
+    email_sent_at: Optional[datetime] = None
+    last_email_error: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

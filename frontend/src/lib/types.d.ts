@@ -25,6 +25,8 @@ interface OrgInvite {
   email: string;
   role: string;
   created_at: string;
+  email_sent_at?: string | null;
+  last_email_error?: string | null;
 }
 
 interface PermissionGroup {

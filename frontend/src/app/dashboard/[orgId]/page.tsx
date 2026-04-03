@@ -55,7 +55,9 @@ export default function ProductsPage() {
   const [memberActionId, setMemberActionId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const router = useRouter();
-  const currentMembership = members.find((member) => member.user_id === user?.id);
+  const currentMembership = members.find(
+    (member) => member.user_id === user?.id
+  );
   const isOrgAdmin = currentMembership?.role === "admin";
   const adminCount = members.filter((member) => member.role === "admin").length;
 
@@ -220,14 +222,20 @@ export default function ProductsPage() {
     e.preventDefault();
     setInviteSubmitting(true);
     try {
-      await api.organizations.createInvite(orgId, {
+      const invite = await api.organizations.createInvite(orgId, {
         email: inviteEmail,
         role: inviteRole,
       });
       await refreshInvites();
       setInviteEmail("");
       setInviteRole("member");
-      toast.success("Invite created");
+      if (invite.last_email_error) {
+        toast.warning("Invite saved, but email delivery needs attention");
+      } else if (invite.email_sent_at) {
+        toast.success("Invite created and email sent");
+      } else {
+        toast.success("Invite created. Email delivery is disabled by config");
+      }
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -355,7 +363,10 @@ export default function ProductsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="invite-role">Role</Label>
-                  <Select value={inviteRole} onValueChange={handleInviteRoleChange}>
+                  <Select
+                    value={inviteRole}
+                    onValueChange={handleInviteRoleChange}
+                  >
                     <SelectTrigger
                       id="invite-role"
                       className="h-9 w-full"
@@ -417,13 +428,19 @@ export default function ProductsPage() {
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell>{member.user?.email || "Unknown email"}</TableCell>
+                    <TableCell>
+                      {member.user?.email || "Unknown email"}
+                    </TableCell>
                     <TableCell>
                       {isOrgAdmin ? (
                         <Select
                           value={member.role}
                           onValueChange={(nextRole) =>
-                            handleMemberRoleUpdate(member.id, nextRole, member.role)
+                            handleMemberRoleUpdate(
+                              member.id,
+                              nextRole,
+                              member.role
+                            )
                           }
                           disabled={
                             memberActionId === member.id ||
@@ -444,7 +461,9 @@ export default function ProductsPage() {
                           </SelectContent>
                         </Select>
                       ) : (
-                        <Badge variant="outline">{formatRole(member.role)}</Badge>
+                        <Badge variant="outline">
+                          {formatRole(member.role)}
+                        </Badge>
                       )}
                     </TableCell>
                     {isOrgAdmin ? (
@@ -495,6 +514,7 @@ export default function ProductsPage() {
                   <TableRow>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Delivery</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -502,9 +522,32 @@ export default function ProductsPage() {
                 <TableBody>
                   {invites.map((invite) => (
                     <TableRow key={invite.id}>
-                      <TableCell className="font-medium">{invite.email}</TableCell>
+                      <TableCell className="font-medium">
+                        {invite.email}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{formatRole(invite.role)}</Badge>
+                        <Badge variant="outline">
+                          {formatRole(invite.role)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[320px]">
+                        {invite.last_email_error ? (
+                          <div className="space-y-1">
+                            <Badge variant="secondary">Email not sent</Badge>
+                            <p className="text-xs text-muted-foreground">
+                              {invite.last_email_error}
+                            </p>
+                          </div>
+                        ) : invite.email_sent_at ? (
+                          <div className="space-y-1">
+                            <Badge>Sent</Badge>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(invite.email_sent_at).toLocaleString()}
+                            </p>
+                          </div>
+                        ) : (
+                          <Badge variant="secondary">Delivery disabled</Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         {new Date(invite.created_at).toLocaleDateString()}

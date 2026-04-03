@@ -43,6 +43,7 @@ Switch between them instantly from the header dropdowns.
 Organization admins can now:
 - add existing users directly by email
 - create pending invites for teammates who have not signed up yet
+- optionally send invite emails through SMTP and track delivery status
 - update member roles and remove members with last-admin protection
 
 <p>
@@ -194,6 +195,8 @@ To enable "Sign in with Google", set the same Google web client ID in both
 
 - Existing users: open an organization and add them from the **Organization Members** panel.
 - New users: create a pending invite by email; the invite will be accepted automatically when they sign up later with that same email.
+- Optional email delivery: set `INVITE_EMAILS_ENABLED=true` plus `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `SMTP_USE_SSL`, `SMTP_FROM_EMAIL`, and `FRONTEND_APP_URL` in `backend/.env` to send invite emails automatically.
+- Invite email content is config-driven with `INVITE_EMAIL_SUBJECT_TEMPLATE` and `INVITE_EMAIL_BODY_TEMPLATE`. Available placeholders are `{organization_name}`, `{inviter_name}`, `{role_name}`, `{signup_url}`, `{login_url}`, and `{invitee_email}`.
 
 <details>
 <summary><strong>SDKs</strong></summary>

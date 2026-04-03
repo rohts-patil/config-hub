@@ -15,6 +15,7 @@ Config-Hub is built for multi-tenancy. You can create multiple organizations to 
 Organization admins can also manage teammates from the organization page:
 - add existing users by email
 - create pending invites for users who have not signed up yet
+- send invite emails when `INVITE_EMAILS_ENABLED` is turned on, with configurable subject/body templates and tracked delivery status
 - promote, demote, and remove members
 - keep at least one admin assigned at all times
 

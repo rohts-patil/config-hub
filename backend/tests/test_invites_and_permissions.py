@@ -35,16 +35,17 @@ from app.models.product import Product  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.routers.auth import register  # noqa: E402
 from app.routers.audit_log import list_audit_logs  # noqa: E402
-from app.routers.organizations import delete_member  # noqa: E402
+from app.routers.organizations import create_invite, delete_member  # noqa: E402
 from app.routers.permissions import (  # noqa: E402
     PermissionGroupCreate,
     create_permission_group,
     list_product_member_access,
     update_product_member_access,
 )
-from app.schemas.schemas import ProductMemberPermissionUpdate, UserRegister  # noqa: E402
+from app.schemas.schemas import OrgInviteCreate, ProductMemberPermissionUpdate, UserRegister  # noqa: E402
 from app.services.audit import record_audit  # noqa: E402
 from app.services.authz import require_product_permission  # noqa: E402
+from app.services.mailer import EmailConfigurationError  # noqa: E402
 
 
 @pytest.fixture
@@ -187,6 +188,125 @@ async def test_create_permission_group_persists_permissions(db_session: AsyncSes
     assert saved_group.permissions["canManageFlags"] is True
     assert saved_group.permissions["canManageSdkKeys"] is True
     assert saved_group.permissions["canManageWebhooks"] is False
+
+
+@pytest.mark.asyncio
+async def test_create_invite_marks_email_as_sent(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    admin = User(
+        email="admin@example.com",
+        name="Admin User",
+        password_hash="hashed",
+    )
+    org = Organization(name="Acme")
+    db_session.add_all([admin, org])
+    await db_session.flush()
+
+    membership = OrganizationMember(
+        organization_id=org.id,
+        user_id=admin.id,
+        role=OrgRole.ADMIN,
+    )
+    db_session.add(membership)
+    await db_session.flush()
+
+    async def fake_send_org_invite_email(invite, organization, inviter):
+        invite.email_sent_at = invite.created_at
+        invite.last_email_error = None
+
+    monkeypatch.setattr(
+        "app.routers.organizations.send_org_invite_email",
+        fake_send_org_invite_email,
+    )
+
+    invite = await create_invite(
+        org.id,
+        OrgInviteCreate(email="teammate@example.com", role="member"),
+        db=db_session,
+        current_user=admin,
+    )
+
+    assert invite.email == "teammate@example.com"
+    assert invite.email_sent_at is not None
+    assert invite.last_email_error is None
+
+
+@pytest.mark.asyncio
+async def test_create_invite_persists_delivery_error_without_failing(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    admin = User(
+        email="admin@example.com",
+        name="Admin User",
+        password_hash="hashed",
+    )
+    org = Organization(name="Acme")
+    db_session.add_all([admin, org])
+    await db_session.flush()
+
+    membership = OrganizationMember(
+        organization_id=org.id,
+        user_id=admin.id,
+        role=OrgRole.ADMIN,
+    )
+    db_session.add(membership)
+    await db_session.flush()
+
+    async def fake_send_org_invite_email(invite, organization, inviter):
+        raise EmailConfigurationError("SMTP is not configured for invites.")
+
+    monkeypatch.setattr(
+        "app.routers.organizations.send_org_invite_email",
+        fake_send_org_invite_email,
+    )
+
+    invite = await create_invite(
+        org.id,
+        OrgInviteCreate(email="teammate@example.com", role="member"),
+        db=db_session,
+        current_user=admin,
+    )
+
+    assert invite.email_sent_at is None
+    assert invite.last_email_error == "SMTP is not configured for invites."
+
+
+@pytest.mark.asyncio
+async def test_create_invite_respects_disabled_email_config(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    admin = User(
+        email="admin@example.com",
+        name="Admin User",
+        password_hash="hashed",
+    )
+    org = Organization(name="Acme")
+    db_session.add_all([admin, org])
+    await db_session.flush()
+
+    membership = OrganizationMember(
+        organization_id=org.id,
+        user_id=admin.id,
+        role=OrgRole.ADMIN,
+    )
+    db_session.add(membership)
+    await db_session.flush()
+
+    monkeypatch.setattr("app.services.invites.settings.INVITE_EMAILS_ENABLED", False)
+
+    invite = await create_invite(
+        org.id,
+        OrgInviteCreate(email="teammate@example.com", role="member"),
+        db=db_session,
+        current_user=admin,
+    )
+
+    assert invite.email_sent_at is None
+    assert invite.last_email_error is None
 
 
 @pytest.mark.asyncio

@@ -28,7 +28,8 @@ from app.schemas.schemas import (
 )
 from app.services.audit import record_audit
 from app.services.auth import get_current_user
-from app.services.invites import normalize_email
+from app.services.invites import normalize_email, send_org_invite_email
+from app.services.mailer import EmailConfigurationError, EmailDeliveryError
 
 router = APIRouter(prefix="/api/v1/organizations", tags=["Organizations"])
 
@@ -303,7 +304,7 @@ async def create_invite(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await _require_org_admin(org_id, current_user, db)
+    organization = await _require_org_admin(org_id, current_user, db)
     normalized_email = normalize_email(body.email)
 
     user_result = await db.execute(
@@ -341,6 +342,13 @@ async def create_invite(
         invited_by_user_id=current_user.id,
     )
     db.add(invite)
+    await db.flush()
+
+    try:
+        await send_org_invite_email(invite, organization, current_user)
+    except (EmailConfigurationError, EmailDeliveryError) as exc:
+        invite.email_sent_at = None
+        invite.last_email_error = str(exc)
     await db.flush()
 
     await record_audit(
