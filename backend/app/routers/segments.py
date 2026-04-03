@@ -15,7 +15,7 @@ from app.models.targeting import Comparator
 from app.schemas.schemas import SegmentCreate, SegmentUpdate, SegmentOut
 from app.services.auth import get_current_user
 from app.services.audit import get_org_id_for_product, record_audit
-from app.services.authz import require_product_member
+from app.services.authz import require_product_member, require_product_permission
 
 router = APIRouter(prefix="/api/v1/products/{product_id}/segments", tags=["Segments"])
 
@@ -42,7 +42,7 @@ async def create_segment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageSegments")
     segment = Segment(
         product_id=product_id, name=body.name, description=body.description
     )
@@ -101,7 +101,7 @@ async def update_segment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageSegments")
     segment = await _load_segment(segment_id, db)
     if segment.product_id != product_id:
         raise HTTPException(status_code=404, detail="Segment not found")
@@ -154,7 +154,7 @@ async def delete_segment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageSegments")
     result = await db.execute(
         select(Segment).where(
             Segment.id == segment_id, Segment.product_id == product_id

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from app.models.config import Config
     from app.models.environment import Environment
     from app.models.organization import Organization
-    from app.models.permission import PermissionGroup, Tag, Webhook
+    from app.models.permission import PermissionGroup, ProductPermissionAssignment, Tag, Webhook
     from app.models.segment import Segment
 
 
@@ -49,6 +49,9 @@ class Product(Base):
         back_populates="product", cascade="all, delete-orphan"
     )  # noqa: F821
     permission_groups: Mapped[List["PermissionGroup"]] = relationship(
+        back_populates="product", cascade="all, delete-orphan"
+    )  # noqa: F821
+    permission_assignments: Mapped[List["ProductPermissionAssignment"]] = relationship(
         back_populates="product", cascade="all, delete-orphan"
     )  # noqa: F821
     webhooks: Mapped[List["Webhook"]] = relationship(

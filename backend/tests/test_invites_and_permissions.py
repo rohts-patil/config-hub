@@ -24,14 +24,25 @@ from app.models import setting as _setting  # noqa: E402,F401
 from app.models import targeting as _targeting  # noqa: E402,F401
 from app.models import user as _user  # noqa: E402,F401
 from app.database import Base  # noqa: E402
-from app.models.organization import Organization, OrganizationInvite, OrganizationMember, OrgRole  # noqa: E402
-from app.models.permission import PermissionGroup  # noqa: E402
+from app.models.organization import (  # noqa: E402
+    Organization,
+    OrganizationInvite,
+    OrganizationMember,
+    OrgRole,
+)
+from app.models.permission import PermissionGroup, ProductPermissionAssignment  # noqa: E402
 from app.models.product import Product  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.routers.auth import register  # noqa: E402
 from app.routers.organizations import delete_member  # noqa: E402
-from app.routers.permissions import PermissionGroupCreate, create_permission_group  # noqa: E402
-from app.schemas.schemas import UserRegister  # noqa: E402
+from app.routers.permissions import (  # noqa: E402
+    PermissionGroupCreate,
+    create_permission_group,
+    list_product_member_access,
+    update_product_member_access,
+)
+from app.schemas.schemas import ProductMemberPermissionUpdate, UserRegister  # noqa: E402
+from app.services.authz import require_product_permission  # noqa: E402
 
 
 @pytest.fixture
@@ -174,3 +185,146 @@ async def test_create_permission_group_persists_permissions(db_session: AsyncSes
     assert saved_group.permissions["canManageFlags"] is True
     assert saved_group.permissions["canManageSdkKeys"] is True
     assert saved_group.permissions["canManageWebhooks"] is False
+
+
+@pytest.mark.asyncio
+async def test_product_permissions_require_assignment_when_groups_exist(
+    db_session: AsyncSession,
+):
+    admin = User(
+        email="admin@example.com",
+        name="Admin User",
+        password_hash="hashed",
+    )
+    member = User(
+        email="member@example.com",
+        name="Member User",
+        password_hash="hashed",
+    )
+    org = Organization(name="Acme")
+    db_session.add_all([admin, member, org])
+    await db_session.flush()
+
+    admin_membership = OrganizationMember(
+        organization_id=org.id,
+        user_id=admin.id,
+        role=OrgRole.ADMIN,
+    )
+    member_membership = OrganizationMember(
+        organization_id=org.id,
+        user_id=member.id,
+        role=OrgRole.MEMBER,
+    )
+    product = Product(
+        organization_id=org.id,
+        name="Checkout",
+        description="Main product",
+    )
+    db_session.add_all([admin_membership, member_membership, product])
+    await db_session.flush()
+
+    group = await create_permission_group(
+        product.id,
+        PermissionGroupCreate(
+            name="Release Managers",
+            permissions={"canManageFlags": True},
+        ),
+        db=db_session,
+        current_user=admin,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await require_product_permission(
+            db_session,
+            product.id,
+            member,
+            "canManageFlags",
+        )
+
+    assert exc.value.status_code == 403
+
+    assignment = ProductPermissionAssignment(
+        product_id=product.id,
+        organization_member_id=member_membership.id,
+        permission_group_id=group.id,
+    )
+    db_session.add(assignment)
+    await db_session.flush()
+
+    allowed_product = await require_product_permission(
+        db_session,
+        product.id,
+        member,
+        "canManageFlags",
+    )
+
+    assert allowed_product.id == product.id
+
+
+@pytest.mark.asyncio
+async def test_org_admin_can_assign_permission_groups_to_members(
+    db_session: AsyncSession,
+):
+    admin = User(
+        email="admin@example.com",
+        name="Admin User",
+        password_hash="hashed",
+    )
+    member = User(
+        email="member@example.com",
+        name="Member User",
+        password_hash="hashed",
+    )
+    org = Organization(name="Acme")
+    db_session.add_all([admin, member, org])
+    await db_session.flush()
+
+    admin_membership = OrganizationMember(
+        organization_id=org.id,
+        user_id=admin.id,
+        role=OrgRole.ADMIN,
+    )
+    member_membership = OrganizationMember(
+        organization_id=org.id,
+        user_id=member.id,
+        role=OrgRole.MEMBER,
+    )
+    product = Product(
+        organization_id=org.id,
+        name="Checkout",
+        description="Main product",
+    )
+    db_session.add_all([admin_membership, member_membership, product])
+    await db_session.flush()
+
+    group = await create_permission_group(
+        product.id,
+        PermissionGroupCreate(
+            name="Release Managers",
+            permissions={"canManageFlags": True, "canManageSdkKeys": True},
+        ),
+        db=db_session,
+        current_user=admin,
+    )
+
+    updated_access = await update_product_member_access(
+        product.id,
+        member_membership.id,
+        ProductMemberPermissionUpdate(permission_group_id=group.id),
+        db=db_session,
+        current_user=admin,
+    )
+
+    access_rows = await list_product_member_access(
+        product.id,
+        db=db_session,
+        current_user=member,
+    )
+
+    assert updated_access.permission_group_id == group.id
+    assert updated_access.permission_group_name == "Release Managers"
+    assert any(
+        row.member_id == member_membership.id
+        and row.permission_group_name == "Release Managers"
+        for row in access_rows
+    )

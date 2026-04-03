@@ -13,7 +13,7 @@ from app.models.permission import Tag
 from app.schemas.schemas import TagCreate, TagOut
 from app.services.auth import get_current_user
 from app.services.audit import get_org_id_for_product, record_audit
-from app.services.authz import require_product_member
+from app.services.authz import require_product_member, require_product_permission
 
 router = APIRouter(prefix="/api/v1/products/{product_id}/tags", tags=["Tags"])
 
@@ -36,7 +36,7 @@ async def create_tag(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageTags")
     tag = Tag(product_id=product_id, name=body.name, color=body.color)
     db.add(tag)
     await db.flush()
@@ -61,7 +61,7 @@ async def delete_tag(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageTags")
     result = await db.execute(
         select(Tag).where(Tag.id == tag_id, Tag.product_id == product_id)
     )

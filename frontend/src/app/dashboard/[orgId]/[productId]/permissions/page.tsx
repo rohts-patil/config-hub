@@ -5,7 +5,9 @@ import { useParams } from "next/navigation";
 import { ShieldCheck, Plus, Trash2, PencilLine } from "lucide-react";
 import { toast } from "sonner";
 
+import { useAuth } from "@/contexts/auth-context";
 import { api } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -16,6 +18,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -76,6 +84,7 @@ const DEFAULT_PERMISSIONS: PermissionValues = {
   canManageWebhooks: false,
   canViewAuditLog: false,
 };
+const UNASSIGNED_GROUP_VALUE = "__unassigned__";
 
 function normalizePermissions(
   permissions?: Record<string, boolean>
@@ -89,7 +98,9 @@ function normalizePermissions(
 
 export default function PermissionsPage() {
   const { productId } = useParams() as { productId: string };
+  const { user } = useAuth();
   const [groups, setGroups] = useState<PermissionGroup[]>([]);
+  const [memberAccess, setMemberAccess] = useState<ProductMemberAccess[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<PermissionGroup | null>(
@@ -100,15 +111,20 @@ export default function PermissionsPage() {
     useState<PermissionValues>(DEFAULT_PERMISSIONS);
   const [submitting, setSubmitting] = useState(false);
   const [actingGroupId, setActingGroupId] = useState<string | null>(null);
+  const [actingMemberId, setActingMemberId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    const loadGroups = async () => {
+    const loadPage = async () => {
       try {
-        const data = await api.permissions.list(productId);
+        const [groupData, accessData] = await Promise.all([
+          api.permissions.list(productId),
+          api.permissions.access(productId),
+        ]);
         if (!cancelled) {
-          setGroups(data);
+          setGroups(groupData);
+          setMemberAccess(accessData);
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -121,7 +137,7 @@ export default function PermissionsPage() {
       }
     };
 
-    loadGroups();
+    loadPage();
 
     return () => {
       cancelled = true;
@@ -131,6 +147,11 @@ export default function PermissionsPage() {
   const refreshGroups = async () => {
     const data = await api.permissions.list(productId);
     setGroups(data);
+  };
+
+  const refreshMemberAccess = async () => {
+    const data = await api.permissions.access(productId);
+    setMemberAccess(data);
   };
 
   const resetForm = () => {
@@ -160,6 +181,10 @@ export default function PermissionsPage() {
   };
 
   const enabledCount = Object.values(permissions).filter(Boolean).length;
+  const currentUserAccess = memberAccess.find(
+    (member) => member.user_id === user?.id
+  );
+  const canManagePermissions = currentUserAccess?.role === "admin";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,7 +204,7 @@ export default function PermissionsPage() {
         toast.success("Permission group created");
       }
 
-      await refreshGroups();
+      await Promise.all([refreshGroups(), refreshMemberAccess()]);
       setDialogOpen(false);
       resetForm();
     } catch (err: any) {
@@ -197,12 +222,33 @@ export default function PermissionsPage() {
     setActingGroupId(group.id);
     try {
       await api.permissions.delete(productId, group.id);
-      await refreshGroups();
+      await Promise.all([refreshGroups(), refreshMemberAccess()]);
       toast.success("Permission group deleted");
     } catch (err: any) {
       toast.error(err.message);
     } finally {
       setActingGroupId(null);
+    }
+  };
+
+  const handleMemberAccessUpdate = async (
+    memberId: string,
+    nextGroupId: string | null
+  ) => {
+    const permission_group_id =
+      nextGroupId === UNASSIGNED_GROUP_VALUE ? null : nextGroupId;
+
+    setActingMemberId(memberId);
+    try {
+      await api.permissions.updateAccess(productId, memberId, {
+        permission_group_id,
+      });
+      await refreshMemberAccess();
+      toast.success("Member permissions updated");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setActingMemberId(null);
     }
   };
 
@@ -227,10 +273,11 @@ export default function PermissionsPage() {
         <div>
           <h1 className="text-2xl font-bold">Permissions</h1>
           <p className="text-muted-foreground">
-            Define reusable permission groups for this product.
+            Define reusable permission groups and assign them to product
+            members.
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
+        <Button onClick={openCreateDialog} disabled={!canManagePermissions}>
           <Plus className="mr-2 h-4 w-4" />
           New Group
         </Button>
@@ -282,7 +329,9 @@ export default function PermissionsPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => openEditDialog(group)}
-                          disabled={actingGroupId === group.id}
+                          disabled={
+                            !canManagePermissions || actingGroupId === group.id
+                          }
                         >
                           <PencilLine className="h-4 w-4" />
                         </Button>
@@ -292,7 +341,9 @@ export default function PermissionsPage() {
                           size="icon"
                           className="text-destructive hover:text-destructive"
                           onClick={() => handleDelete(group)}
-                          disabled={actingGroupId === group.id}
+                          disabled={
+                            !canManagePermissions || actingGroupId === group.id
+                          }
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -305,6 +356,100 @@ export default function PermissionsPage() {
           </Table>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Member Access</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Organization admins always keep full access. Other members can be
+            assigned a permission group for this product.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {memberAccess.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No members found for this organization.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Org Role</TableHead>
+                  <TableHead>Product Access</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {memberAccess.map((member) => {
+                  const isOrgAdmin = member.role === "admin";
+                  const selectValue =
+                    member.permission_group_id || UNASSIGNED_GROUP_VALUE;
+
+                  return (
+                    <TableRow key={member.member_id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>{member.user?.name || "Unknown user"}</span>
+                          {member.user_id === user?.id ? (
+                            <Badge variant="secondary">You</Badge>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {member.user?.email || "Unknown email"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {formatRole(member.role)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {isOrgAdmin ? (
+                          <Badge>Full access via org admin role</Badge>
+                        ) : canManagePermissions ? (
+                          <Select
+                            value={selectValue}
+                            onValueChange={(nextValue) =>
+                              handleMemberAccessUpdate(
+                                member.member_id,
+                                nextValue
+                              )
+                            }
+                            disabled={actingMemberId === member.member_id}
+                          >
+                            <SelectTrigger className="h-9 w-full min-w-[220px]">
+                              <span className="truncate">
+                                {member.permission_group_name ||
+                                  "No explicit access"}
+                              </span>
+                            </SelectTrigger>
+                            <SelectContent align="start">
+                              <SelectItem value={UNASSIGNED_GROUP_VALUE}>
+                                No explicit access
+                              </SelectItem>
+                              {groups.map((group) => (
+                                <SelectItem key={group.id} value={group.id}>
+                                  {group.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            {member.permission_group_name ||
+                              "No explicit access"}
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog open={dialogOpen} onOpenChange={closeDialog}>
         <DialogContent className="max-w-2xl">
@@ -324,7 +469,7 @@ export default function PermissionsPage() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Release Managers"
                 required
-                disabled={submitting}
+                disabled={submitting || !canManagePermissions}
               />
             </div>
 
@@ -353,14 +498,18 @@ export default function PermissionsPage() {
                       onCheckedChange={(checked) =>
                         handlePermissionToggle(option.key, checked)
                       }
-                      disabled={submitting}
+                      disabled={submitting || !canManagePermissions}
                     />
                   </div>
                 ))}
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={submitting}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={submitting || !canManagePermissions}
+            >
               {submitting
                 ? editingGroup
                   ? "Saving..."
@@ -374,4 +523,15 @@ export default function PermissionsPage() {
       </Dialog>
     </div>
   );
+}
+
+function formatRole(role: string) {
+  switch (role) {
+    case "admin":
+      return "Admin";
+    case "billing_manager":
+      return "Billing Manager";
+    default:
+      return "Member";
+  }
 }

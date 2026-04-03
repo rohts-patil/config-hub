@@ -132,6 +132,10 @@ export const api = {
   permissions: {
     list: (productId: string) =>
       request<PermissionGroup[]>(`/api/v1/products/${productId}/permissions`),
+    access: (productId: string) =>
+      request<ProductMemberAccess[]>(
+        `/api/v1/products/${productId}/permissions/access`
+      ),
     create: (
       productId: string,
       data: { name: string; permissions: Record<string, boolean> }
@@ -156,6 +160,18 @@ export const api = {
       request<void>(`/api/v1/products/${productId}/permissions/${groupId}`, {
         method: "DELETE",
       }),
+    updateAccess: (
+      productId: string,
+      memberId: string,
+      data: { permission_group_id?: string | null }
+    ) =>
+      request<ProductMemberAccess>(
+        `/api/v1/products/${productId}/permissions/access/${memberId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(data),
+        }
+      ),
   },
 
   // ── Configs ──

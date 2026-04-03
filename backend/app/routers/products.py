@@ -9,25 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User
-from app.models.organization import OrganizationMember
 from app.models.product import Product
 from app.schemas.schemas import ProductCreate, ProductUpdate, ProductOut
 from app.services.auth import get_current_user
 from app.services.audit import record_audit
+from app.services.authz import require_org_admin, require_org_member
 
 router = APIRouter(prefix="/api/v1/organizations/{org_id}/products", tags=["Products"])
-
-
-async def _require_org_member(org_id: str, user: User, db: AsyncSession):
-    result = await db.execute(
-        select(OrganizationMember).where(
-            OrganizationMember.organization_id == org_id,
-            OrganizationMember.user_id == user.id,
-        )
-    )
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=403, detail="Not a member of this organization")
-
 
 @router.get("", response_model=List[ProductOut])
 async def list_products(
@@ -35,7 +23,7 @@ async def list_products(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await _require_org_member(org_id, current_user, db)
+    await require_org_member(db, org_id, current_user)
     result = await db.execute(select(Product).where(Product.organization_id == org_id))
     return result.scalars().all()
 
@@ -47,7 +35,7 @@ async def create_product(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await _require_org_member(org_id, current_user, db)
+    await require_org_admin(db, org_id, current_user)
     product = Product(
         organization_id=org_id, name=body.name, description=body.description
     )
@@ -72,7 +60,7 @@ async def get_product(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await _require_org_member(org_id, current_user, db)
+    await require_org_member(db, org_id, current_user)
     result = await db.execute(
         select(Product).where(
             Product.id == product_id, Product.organization_id == org_id
@@ -92,7 +80,7 @@ async def update_product(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await _require_org_member(org_id, current_user, db)
+    await require_org_admin(db, org_id, current_user)
     result = await db.execute(
         select(Product).where(
             Product.id == product_id, Product.organization_id == org_id
@@ -127,7 +115,7 @@ async def delete_product(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await _require_org_member(org_id, current_user, db)
+    await require_org_admin(db, org_id, current_user)
     result = await db.execute(
         select(Product).where(
             Product.id == product_id, Product.organization_id == org_id

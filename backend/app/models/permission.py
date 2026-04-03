@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, List, Optional
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, DateTime, Boolean, ForeignKey, JSON, Text
+from sqlalchemy import String, DateTime, Boolean, ForeignKey, JSON, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.models.config import Config
     from app.models.environment import Environment
     from app.models.organization import Organization
+    from app.models.organization import OrganizationMember
     from app.models.product import Product
     from app.models.setting import Setting
     from app.models.user import User
@@ -34,6 +35,48 @@ class PermissionGroup(Base):
     # permissions example: {"canManageFlags": true, "canManageEnvironments": false, ...}
 
     product: Mapped["Product"] = relationship(back_populates="permission_groups")  # noqa: F821
+    assignments: Mapped[List["ProductPermissionAssignment"]] = relationship(
+        back_populates="permission_group", cascade="all, delete-orphan"
+    )
+
+
+class ProductPermissionAssignment(Base):
+    __tablename__ = "product_permission_assignments"
+    __table_args__ = (
+        UniqueConstraint(
+            "product_id",
+            "organization_member_id",
+            name="uq_product_permission_assignment_member",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    product_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("products.id", ondelete="CASCADE"), nullable=False
+    )
+    organization_member_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("organization_members.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    permission_group_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("permission_groups.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    product: Mapped["Product"] = relationship(back_populates="permission_assignments")  # noqa: F821
+    organization_member: Mapped["OrganizationMember"] = relationship(
+        back_populates="permission_assignments"
+    )
+    permission_group: Mapped["PermissionGroup"] = relationship(
+        back_populates="assignments"
+    )
 
 
 class Tag(Base):

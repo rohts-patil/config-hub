@@ -108,6 +108,19 @@ class OrgInviteOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ProductMemberPermissionUpdate(BaseModel):
+    permission_group_id: Optional[str] = None
+
+
+class ProductMemberAccessOut(BaseModel):
+    member_id: str
+    user_id: str
+    role: str
+    user: Optional[UserOut] = None
+    permission_group_id: Optional[str] = None
+    permission_group_name: Optional[str] = None
+
+
 # ── Product ───────────────────────────────────────────────────────────────────
 
 

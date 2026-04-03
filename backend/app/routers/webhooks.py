@@ -13,7 +13,7 @@ from app.models.permission import Webhook
 from app.schemas.schemas import WebhookCreate, WebhookUpdate, WebhookOut
 from app.services.auth import get_current_user
 from app.services.audit import get_org_id_for_product, record_audit
-from app.services.authz import require_product_member
+from app.services.authz import require_product_member, require_product_permission
 
 router = APIRouter(prefix="/api/v1/products/{product_id}/webhooks", tags=["Webhooks"])
 
@@ -36,7 +36,7 @@ async def create_webhook(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageWebhooks")
     webhook = Webhook(
         product_id=product_id,
         url=body.url,
@@ -92,7 +92,7 @@ async def update_webhook(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageWebhooks")
     result = await db.execute(
         select(Webhook).where(
             Webhook.id == webhook_id, Webhook.product_id == product_id
@@ -143,7 +143,7 @@ async def delete_webhook(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageWebhooks")
     result = await db.execute(
         select(Webhook).where(
             Webhook.id == webhook_id, Webhook.product_id == product_id

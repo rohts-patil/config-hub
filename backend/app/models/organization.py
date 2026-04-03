@@ -14,6 +14,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.permission import AuditLog
+    from app.models.permission import ProductPermissionAssignment
     from app.models.product import Product
     from app.models.user import User
 
@@ -69,6 +70,9 @@ class OrganizationMember(Base):
     # Relationships
     organization: Mapped["Organization"] = relationship(back_populates="members")
     user: Mapped["User"] = relationship(back_populates="memberships")  # noqa: F821
+    permission_assignments: Mapped[List["ProductPermissionAssignment"]] = relationship(
+        back_populates="organization_member", cascade="all, delete-orphan"
+    )
 
 
 class OrganizationInvite(Base):

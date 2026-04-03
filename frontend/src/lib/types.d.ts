@@ -34,6 +34,15 @@ interface PermissionGroup {
   permissions: Record<string, boolean>;
 }
 
+interface ProductMemberAccess {
+  member_id: string;
+  user_id: string;
+  role: string;
+  user?: User;
+  permission_group_id?: string;
+  permission_group_name?: string;
+}
+
 // ── Product ──
 interface Product {
   id: string;

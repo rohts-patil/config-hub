@@ -29,8 +29,11 @@ from app.services.auth import get_current_user
 from app.services.audit import record_audit, get_org_id_for_product
 from app.services.authz import (
     require_config_member,
+    require_config_permission,
     require_environment_member,
+    require_environment_permission,
     require_product_member,
+    require_product_permission,
 )
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -60,7 +63,7 @@ async def create_config(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageFlags")
     config = Config(product_id=product_id, name=body.name)
     db.add(config)
     await db.flush()
@@ -109,8 +112,12 @@ async def update_config(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    config = await require_config_member(
-        db, config_id, current_user, product_id=product_id
+    config = await require_config_permission(
+        db,
+        config_id,
+        current_user,
+        "canManageFlags",
+        product_id=product_id,
     )
     old_value = {"name": config.name, "order": config.order}
     if body.name is not None:
@@ -142,8 +149,12 @@ async def delete_config(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    config = await require_config_member(
-        db, config_id, current_user, product_id=product_id
+    config = await require_config_permission(
+        db,
+        config_id,
+        current_user,
+        "canManageFlags",
+        product_id=product_id,
     )
 
     org_id = await get_org_id_for_product(db, product_id)
@@ -190,7 +201,9 @@ async def create_environment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(
+        db, product_id, current_user, "canManageEnvironments"
+    )
     env = Environment(product_id=product_id, name=body.name, color=body.color)
     db.add(env)
     await db.flush()
@@ -224,7 +237,13 @@ async def update_environment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_environment_permission(
+        db,
+        env_id,
+        current_user,
+        "canManageEnvironments",
+        product_id=product_id,
+    )
     result = await db.execute(
         select(Environment).where(
             Environment.id == env_id, Environment.product_id == product_id
@@ -264,7 +283,13 @@ async def delete_environment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_environment_permission(
+        db,
+        env_id,
+        current_user,
+        "canManageEnvironments",
+        product_id=product_id,
+    )
     result = await db.execute(
         select(Environment).where(
             Environment.id == env_id, Environment.product_id == product_id
@@ -319,7 +344,7 @@ async def create_sdk_key(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageSdkKeys")
     config = await require_config_member(
         db,
         body.config_id,
@@ -363,7 +388,7 @@ async def revoke_sdk_key(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageSdkKeys")
     sdk_key = await _load_sdk_key_for_product(db, product_id, sdk_key_id)
     if sdk_key.revoked:
         return _sdk_key_summary(sdk_key)
@@ -393,7 +418,7 @@ async def delete_sdk_key(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageSdkKeys")
     sdk_key = await _load_sdk_key_for_product(db, product_id, sdk_key_id)
 
     org_id = await get_org_id_for_product(db, product_id)
