@@ -267,6 +267,26 @@ export default function ProductsPage() {
     }
   };
 
+  const handleInviteResend = async (invite: OrgInvite) => {
+    setInviteActionId(invite.id);
+    try {
+      const updatedInvite = await api.organizations.resendInvite(
+        orgId,
+        invite.id
+      );
+      await refreshInvites();
+      if (updatedInvite.last_email_error) {
+        toast.warning("Invite resend failed");
+      } else {
+        toast.success("Invite email resent");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setInviteActionId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -564,15 +584,27 @@ export default function ProductsPage() {
                         {new Date(invite.created_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive"
-                          disabled={inviteActionId === invite.id}
-                          onClick={() => handleInviteDelete(invite)}
-                        >
-                          Revoke
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          {inviteEmailsEnabled ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              disabled={inviteActionId === invite.id}
+                              onClick={() => handleInviteResend(invite)}
+                            >
+                              Resend
+                            </Button>
+                          ) : null}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            disabled={inviteActionId === invite.id}
+                            onClick={() => handleInviteDelete(invite)}
+                          >
+                            Revoke
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

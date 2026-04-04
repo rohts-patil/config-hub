@@ -39,6 +39,7 @@ from app.routers.organizations import (  # noqa: E402
     create_invite,
     delete_member,
     get_invite_settings,
+    resend_invite,
 )
 from app.routers.permissions import (  # noqa: E402
     PermissionGroupCreate,
@@ -349,6 +350,95 @@ async def test_get_invite_settings_reflects_config(
     )
 
     assert payload.invite_emails_enabled is False
+
+
+@pytest.mark.asyncio
+async def test_resend_invite_updates_delivery_state(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    admin = User(
+        email="admin@example.com",
+        name="Admin User",
+        password_hash="hashed",
+    )
+    org = Organization(name="Acme")
+    db_session.add_all([admin, org])
+    await db_session.flush()
+
+    membership = OrganizationMember(
+        organization_id=org.id,
+        user_id=admin.id,
+        role=OrgRole.ADMIN,
+    )
+    invite = OrganizationInvite(
+        organization_id=org.id,
+        email="future@example.com",
+        role=OrgRole.MEMBER,
+    )
+    db_session.add_all([membership, invite])
+    await db_session.flush()
+
+    async def fake_send_org_invite_email(invite, organization, inviter):
+        invite.email_sent_at = invite.created_at
+        invite.last_email_error = None
+
+    monkeypatch.setattr("app.routers.organizations.settings.INVITE_EMAILS_ENABLED", True)
+    monkeypatch.setattr(
+        "app.routers.organizations.send_org_invite_email",
+        fake_send_org_invite_email,
+    )
+
+    resent_invite = await resend_invite(
+        org.id,
+        invite.id,
+        db=db_session,
+        current_user=admin,
+    )
+
+    assert resent_invite.email_sent_at is not None
+    assert resent_invite.last_email_error is None
+
+
+@pytest.mark.asyncio
+async def test_resend_invite_is_rejected_when_disabled_by_config(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    admin = User(
+        email="admin@example.com",
+        name="Admin User",
+        password_hash="hashed",
+    )
+    org = Organization(name="Acme")
+    db_session.add_all([admin, org])
+    await db_session.flush()
+
+    membership = OrganizationMember(
+        organization_id=org.id,
+        user_id=admin.id,
+        role=OrgRole.ADMIN,
+    )
+    invite = OrganizationInvite(
+        organization_id=org.id,
+        email="future@example.com",
+        role=OrgRole.MEMBER,
+    )
+    db_session.add_all([membership, invite])
+    await db_session.flush()
+
+    monkeypatch.setattr("app.routers.organizations.settings.INVITE_EMAILS_ENABLED", False)
+
+    with pytest.raises(HTTPException) as exc:
+        await resend_invite(
+            org.id,
+            invite.id,
+            db=db_session,
+            current_user=admin,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Email invites are disabled by configuration"
 
 
 @pytest.mark.asyncio

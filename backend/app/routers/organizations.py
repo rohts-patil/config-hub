@@ -361,11 +361,7 @@ async def create_invite(
     db.add(invite)
     await db.flush()
 
-    try:
-        await send_org_invite_email(invite, organization, current_user)
-    except (EmailConfigurationError, EmailDeliveryError) as exc:
-        invite.email_sent_at = None
-        invite.last_email_error = str(exc)
+    await _attempt_invite_delivery(invite, organization, current_user)
     await db.flush()
 
     await record_audit(
@@ -376,6 +372,43 @@ async def create_invite(
         "organization_invite",
         entity_id=invite.id,
         new_value={"email": invite.email, "role": invite.role.value},
+    )
+    return invite
+
+
+@router.post("/{org_id}/invites/{invite_id}/resend", response_model=OrgInviteOut)
+async def resend_invite(
+    org_id: str,
+    invite_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    organization = await _require_org_admin(org_id, current_user, db)
+    if not settings.INVITE_EMAILS_ENABLED:
+        raise HTTPException(
+            status_code=403,
+            detail="Email invites are disabled by configuration",
+        )
+
+    invite = await _get_invite_by_id(org_id, invite_id, db)
+    await _attempt_invite_delivery(invite, organization, current_user)
+    await db.flush()
+
+    await record_audit(
+        db,
+        org_id,
+        current_user.id,
+        "resent",
+        "organization_invite",
+        entity_id=invite.id,
+        new_value={
+            "email": invite.email,
+            "role": invite.role.value,
+            "email_sent_at": invite.email_sent_at.isoformat()
+            if invite.email_sent_at
+            else None,
+            "last_email_error": invite.last_email_error,
+        },
     )
     return invite
 
@@ -400,6 +433,18 @@ async def delete_invite(
         old_value={"email": invite.email, "role": invite.role.value},
     )
     await db.delete(invite)
+
+
+async def _attempt_invite_delivery(
+    invite: OrganizationInvite,
+    organization: Organization,
+    current_user: User,
+) -> None:
+    try:
+        await send_org_invite_email(invite, organization, current_user)
+    except (EmailConfigurationError, EmailDeliveryError) as exc:
+        invite.email_sent_at = None
+        invite.last_email_error = str(exc)
 
 
 @router.patch("/{org_id}/members/{member_id}", response_model=OrgMemberOut)

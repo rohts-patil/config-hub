@@ -98,6 +98,13 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    resendInvite: (id: string, inviteId: string) =>
+      request<OrgInvite>(
+        `/api/v1/organizations/${id}/invites/${inviteId}/resend`,
+        {
+          method: "POST",
+        }
+      ),
     deleteInvite: (id: string, inviteId: string) =>
       request<void>(`/api/v1/organizations/${id}/invites/${inviteId}`, {
         method: "DELETE",
