@@ -19,6 +19,7 @@ from app.models.organization import (
 from app.schemas.schemas import (
     OrgInviteCreate,
     OrgInviteOut,
+    OrgInviteSettingsOut,
     OrgMemberCreate,
     OrgMemberUpdate,
     OrganizationCreate,
@@ -26,6 +27,7 @@ from app.schemas.schemas import (
     OrganizationOut,
     OrgMemberOut,
 )
+from app.config import settings
 from app.services.audit import record_audit
 from app.services.auth import get_current_user
 from app.services.invites import normalize_email, send_org_invite_email
@@ -179,6 +181,16 @@ async def get_organization(
     return await _get_org_as_member(org_id, current_user, db)
 
 
+@router.get("/{org_id}/invite-settings", response_model=OrgInviteSettingsOut)
+async def get_invite_settings(
+    org_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _get_org_as_member(org_id, current_user, db)
+    return OrgInviteSettingsOut(invite_emails_enabled=settings.INVITE_EMAILS_ENABLED)
+
+
 @router.patch("/{org_id}", response_model=OrganizationOut)
 async def update_organization(
     org_id: str,
@@ -305,6 +317,11 @@ async def create_invite(
     current_user: User = Depends(get_current_user),
 ):
     organization = await _require_org_admin(org_id, current_user, db)
+    if not settings.INVITE_EMAILS_ENABLED:
+        raise HTTPException(
+            status_code=403,
+            detail="Email invites are disabled by configuration",
+        )
     normalized_email = normalize_email(body.email)
 
     user_result = await db.execute(

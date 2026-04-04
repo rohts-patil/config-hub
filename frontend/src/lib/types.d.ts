@@ -29,6 +29,10 @@ interface OrgInvite {
   last_email_error?: string | null;
 }
 
+interface OrgInviteSettings {
+  invite_emails_enabled: boolean;
+}
+
 interface PermissionGroup {
   id: string;
   product_id: string;

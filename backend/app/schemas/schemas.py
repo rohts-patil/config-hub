@@ -110,6 +110,10 @@ class OrgInviteOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class OrgInviteSettingsOut(BaseModel):
+    invite_emails_enabled: bool
+
+
 class ProductMemberPermissionUpdate(BaseModel):
     permission_group_id: Optional[str] = None
 

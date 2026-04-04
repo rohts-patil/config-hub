@@ -40,6 +40,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [invites, setInvites] = useState<OrgInvite[]>([]);
+  const [inviteEmailsEnabled, setInviteEmailsEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [membersLoading, setMembersLoading] = useState(true);
   const [invitesLoading, setInvitesLoading] = useState(true);
@@ -68,15 +69,21 @@ export default function ProductsPage() {
         const invitePromise = api.organizations
           .invites(orgId)
           .catch(() => [] as OrgInvite[]);
-        const [productData, memberData, inviteData] = await Promise.all([
-          api.products.list(orgId),
-          api.organizations.members(orgId),
-          invitePromise,
-        ]);
+        const inviteSettingsPromise = api.organizations
+          .inviteSettings(orgId)
+          .catch(() => ({ invite_emails_enabled: false }));
+        const [productData, memberData, inviteData, inviteSettings] =
+          await Promise.all([
+            api.products.list(orgId),
+            api.organizations.members(orgId),
+            invitePromise,
+            inviteSettingsPromise,
+          ]);
         if (!cancelled) {
           setProducts(productData);
           setMembers(memberData);
           setInvites(inviteData);
+          setInviteEmailsEnabled(inviteSettings.invite_emails_enabled);
         }
       } catch (err: any) {
         if (!cancelled) toast.error(err.message);
@@ -338,64 +345,67 @@ export default function ProductsPage() {
                 </Button>
               </form>
 
-              <form
-                onSubmit={handleInviteCreate}
-                className="grid gap-4 rounded-xl border border-border/70 bg-muted/20 p-4"
-              >
-                <div>
-                  <h3 className="font-semibold">Invite New User</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Create a pending invite that will be accepted automatically
-                    when this email signs up later.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="invite-email">Invite email</Label>
-                  <Input
-                    id="invite-email"
-                    type="email"
-                    placeholder="future-teammate@example.com"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    required
-                    disabled={inviteSubmitting}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="invite-role">Role</Label>
-                  <Select
-                    value={inviteRole}
-                    onValueChange={handleInviteRoleChange}
-                  >
-                    <SelectTrigger
-                      id="invite-role"
-                      className="h-9 w-full"
-                      disabled={inviteSubmitting}
-                    >
-                      <span className="truncate">{formatRole(inviteRole)}</span>
-                    </SelectTrigger>
-                    <SelectContent align="start">
-                      <SelectItem value="member">Member</SelectItem>
-                      <SelectItem value="billing_manager">
-                        Billing Manager
-                      </SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={inviteSubmitting}
+              {inviteEmailsEnabled ? (
+                <form
+                  onSubmit={handleInviteCreate}
+                  className="grid gap-4 rounded-xl border border-border/70 bg-muted/20 p-4"
                 >
-                  {inviteSubmitting ? "Creating invite..." : "Create Invite"}
-                </Button>
-              </form>
+                  <div>
+                    <h3 className="font-semibold">Invite New User</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Create a pending invite that will be accepted
+                      automatically when this email signs up later.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="invite-email">Invite email</Label>
+                    <Input
+                      id="invite-email"
+                      type="email"
+                      placeholder="future-teammate@example.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      required
+                      disabled={inviteSubmitting}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="invite-role">Role</Label>
+                    <Select
+                      value={inviteRole}
+                      onValueChange={handleInviteRoleChange}
+                    >
+                      <SelectTrigger
+                        id="invite-role"
+                        className="h-9 w-full"
+                        disabled={inviteSubmitting}
+                      >
+                        <span className="truncate">
+                          {formatRole(inviteRole)}
+                        </span>
+                      </SelectTrigger>
+                      <SelectContent align="start">
+                        <SelectItem value="member">Member</SelectItem>
+                        <SelectItem value="billing_manager">
+                          Billing Manager
+                        </SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={inviteSubmitting}
+                  >
+                    {inviteSubmitting ? "Creating invite..." : "Create Invite"}
+                  </Button>
+                </form>
+              ) : null}
             </div>
           ) : (
             <div className="rounded-xl border border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
-              Only organization admins can add members. Ask an admin to invite
-              teammates by email.
+              Only organization admins can add members.
             </div>
           )}
 
@@ -490,13 +500,14 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
-      {isOrgAdmin ? (
+      {isOrgAdmin && (inviteEmailsEnabled || invites.length > 0) ? (
         <Card>
           <CardHeader>
             <CardTitle className="text-xl">Pending Invites</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Invites are matched by email and accepted automatically after that
-              person signs up or logs in.
+              {inviteEmailsEnabled
+                ? "Invites are matched by email and accepted automatically after that person signs up or logs in."
+                : "Invite creation is disabled by configuration. Existing pending invites are shown here so they can still be reviewed or revoked."}
             </p>
           </CardHeader>
           <CardContent>

@@ -12,10 +12,12 @@
 
 @layer base {
   .theme {
-    --font-heading: var(--font-sans);
-    --font-sans: var(--font-sans);
+    --font-heading: "Avenir Next", "Segoe UI", sans-serif;
+    --font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   }
   :root {
+    --font-heading: "Avenir Next", "Segoe UI", sans-serif;
+    --font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     --background: oklch(0.982 0.018 79.4);
     --foreground: oklch(0.284 0.033 35.9);
     --card: oklch(0.992 0.012 84.6);

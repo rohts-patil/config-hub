@@ -35,7 +35,11 @@ from app.models.product import Product  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.routers.auth import register  # noqa: E402
 from app.routers.audit_log import list_audit_logs  # noqa: E402
-from app.routers.organizations import create_invite, delete_member  # noqa: E402
+from app.routers.organizations import (  # noqa: E402
+    create_invite,
+    delete_member,
+    get_invite_settings,
+)
 from app.routers.permissions import (  # noqa: E402
     PermissionGroupCreate,
     create_permission_group,
@@ -220,6 +224,7 @@ async def test_create_invite_marks_email_as_sent(
         "app.routers.organizations.send_org_invite_email",
         fake_send_org_invite_email,
     )
+    monkeypatch.setattr("app.routers.organizations.settings.INVITE_EMAILS_ENABLED", True)
 
     invite = await create_invite(
         org.id,
@@ -262,6 +267,7 @@ async def test_create_invite_persists_delivery_error_without_failing(
         "app.routers.organizations.send_org_invite_email",
         fake_send_org_invite_email,
     )
+    monkeypatch.setattr("app.routers.organizations.settings.INVITE_EMAILS_ENABLED", True)
 
     invite = await create_invite(
         org.id,
@@ -275,7 +281,7 @@ async def test_create_invite_persists_delivery_error_without_failing(
 
 
 @pytest.mark.asyncio
-async def test_create_invite_respects_disabled_email_config(
+async def test_create_invite_is_rejected_when_disabled_by_config(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -298,15 +304,51 @@ async def test_create_invite_respects_disabled_email_config(
 
     monkeypatch.setattr("app.services.invites.settings.INVITE_EMAILS_ENABLED", False)
 
-    invite = await create_invite(
+    with pytest.raises(HTTPException) as exc:
+        await create_invite(
+            org.id,
+            OrgInviteCreate(email="teammate@example.com", role="member"),
+            db=db_session,
+            current_user=admin,
+        )
+
+    invites = await db_session.execute(select(OrganizationInvite))
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Email invites are disabled by configuration"
+    assert invites.scalars().all() == []
+
+
+@pytest.mark.asyncio
+async def test_get_invite_settings_reflects_config(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    admin = User(
+        email="admin@example.com",
+        name="Admin User",
+        password_hash="hashed",
+    )
+    org = Organization(name="Acme")
+    db_session.add_all([admin, org])
+    await db_session.flush()
+
+    membership = OrganizationMember(
+        organization_id=org.id,
+        user_id=admin.id,
+        role=OrgRole.ADMIN,
+    )
+    db_session.add(membership)
+    await db_session.flush()
+
+    monkeypatch.setattr("app.routers.organizations.settings.INVITE_EMAILS_ENABLED", False)
+
+    payload = await get_invite_settings(
         org.id,
-        OrgInviteCreate(email="teammate@example.com", role="member"),
         db=db_session,
         current_user=admin,
     )
 
-    assert invite.email_sent_at is None
-    assert invite.last_email_error is None
+    assert payload.invite_emails_enabled is False
 
 
 @pytest.mark.asyncio

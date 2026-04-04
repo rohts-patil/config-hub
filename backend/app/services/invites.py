@@ -24,15 +24,19 @@ async def send_org_invite_email(
     organization: Organization,
     inviter: User,
 ) -> None:
+    signup_query = (
+        f"email={quote(invite.email)}"
+        f"&org={quote(organization.name)}"
+        f"&role={quote(invite.role.value)}"
+    )
+    signup_url = f"{settings.FRONTEND_APP_URL.rstrip('/')}/register?{signup_query}"
+    login_url = f"{settings.FRONTEND_APP_URL.rstrip('/')}/login?{signup_query}"
+
     if not settings.INVITE_EMAILS_ENABLED:
         invite.email_sent_at = None
         invite.last_email_error = None
         return
 
-    signup_url = (
-        f"{settings.FRONTEND_APP_URL.rstrip('/')}/register?email={quote(invite.email)}"
-    )
-    login_url = f"{settings.FRONTEND_APP_URL.rstrip('/')}/login"
     inviter_label = inviter.name.strip() if inviter.name.strip() else inviter.email
     template_context = {
         "organization_name": organization.name,

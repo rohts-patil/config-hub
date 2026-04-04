@@ -91,6 +91,8 @@ export const api = {
       }),
     invites: (id: string) =>
       request<OrgInvite[]>(`/api/v1/organizations/${id}/invites`),
+    inviteSettings: (id: string) =>
+      request<OrgInviteSettings>(`/api/v1/organizations/${id}/invite-settings`),
     createInvite: (id: string, data: { email: string; role: string }) =>
       request<OrgInvite>(`/api/v1/organizations/${id}/invites`, {
         method: "POST",

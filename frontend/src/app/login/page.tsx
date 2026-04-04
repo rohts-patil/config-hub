@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,14 +19,39 @@ import {
 import { toast } from "sonner";
 import { Flag } from "lucide-react";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const busy = loading || googleLoading;
+  const inviteEmail = searchParams.get("email") || "";
+  const inviteOrg = searchParams.get("org") || "";
+  const inviteRole = searchParams.get("role") || "";
+  const registerHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (inviteEmail) params.set("email", inviteEmail);
+    if (inviteOrg) params.set("org", inviteOrg);
+    if (inviteRole) params.set("role", inviteRole);
+    const qs = params.toString();
+    return qs ? `/register?${qs}` : "/register";
+  }, [inviteEmail, inviteOrg, inviteRole]);
+
+  useEffect(() => {
+    if (inviteEmail) {
+      setEmail(inviteEmail);
+    }
+  }, [inviteEmail]);
+
+  const inviteRoleLabel = inviteRole
+    ? inviteRole
+        .split("_")
+        .map((part) => part[0].toUpperCase() + part.slice(1))
+        .join(" ")
+    : "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,10 +87,26 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl">Sign in to ConfigHub</CardTitle>
           <CardDescription>
-            Enter your credentials to access the dashboard
+            {inviteOrg
+              ? `Sign in to accept your invite to ${inviteOrg}`
+              : "Enter your credentials to access the dashboard"}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {inviteOrg ? (
+            <div className="mb-4 rounded-xl border border-border/70 bg-muted/50 p-3 text-left">
+              <p className="text-sm font-medium">
+                Use the invited email and your membership will be added
+                automatically after sign-in.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Badge variant="outline">{inviteOrg}</Badge>
+                {inviteRoleLabel ? (
+                  <Badge variant="secondary">{inviteRoleLabel}</Badge>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -110,12 +152,32 @@ export default function LoginPage() {
           <p className="mt-4 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link
-              href="/register"
+              href={registerHref}
               className="text-primary underline-offset-4 hover:underline"
             >
               Sign up
             </Link>
           </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<AuthPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function AuthPageFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      <Card className="w-full max-w-md">
+        <CardContent className="flex items-center justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </CardContent>
       </Card>
     </div>
