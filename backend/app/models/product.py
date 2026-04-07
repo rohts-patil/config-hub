@@ -15,7 +15,12 @@ if TYPE_CHECKING:
     from app.models.config import Config
     from app.models.environment import Environment
     from app.models.organization import Organization
-    from app.models.permission import PermissionGroup, ProductPermissionAssignment, Tag, Webhook
+    from app.models.permission import (
+        PermissionGroup,
+        ProductPermissionAssignment,
+        Tag,
+        Webhook,
+    )
     from app.models.segment import Segment
 
 

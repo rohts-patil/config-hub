@@ -2,6 +2,12 @@ from __future__ import annotations
 
 """Async SQLAlchemy engine and session factory."""
 
+import asyncio
+from pathlib import Path
+import secrets
+
+from alembic import command
+from alembic.config import Config as AlembicConfig
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -34,14 +40,40 @@ async def get_db() -> AsyncSession:  # type: ignore[misc]
             raise
 
 
-async def create_tables() -> None:
-    """Create all tables (dev convenience — use Alembic in production)."""
+async def run_database_migrations() -> None:
+    """Apply Alembic migrations, bootstrapping older local databases when needed."""
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        await conn.run_sync(_run_startup_migrations)
+        state = await conn.run_sync(_inspect_database_state)
+        if state["has_app_tables"] and not state["has_alembic_version"]:
+            await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(_bootstrap_legacy_schema)
+            await asyncio.to_thread(_run_alembic_command, "stamp", "head")
+            return
+
+    await asyncio.to_thread(_run_alembic_command, "upgrade", "head")
 
 
-def _run_startup_migrations(sync_conn) -> None:
+def _run_alembic_command(command_name: str, revision: str) -> None:
+    config = AlembicConfig(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    config.set_main_option(
+        "script_location",
+        str(Path(__file__).resolve().parents[1] / "alembic"),
+    )
+    config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+    getattr(command, command_name)(config, revision)
+
+
+def _inspect_database_state(sync_conn) -> dict[str, bool]:
+    inspector = inspect(sync_conn)
+    table_names = set(inspector.get_table_names())
+    app_tables = set(Base.metadata.tables.keys())
+    return {
+        "has_app_tables": bool(table_names & app_tables),
+        "has_alembic_version": "alembic_version" in table_names,
+    }
+
+
+def _bootstrap_legacy_schema(sync_conn) -> None:
     inspector = inspect(sync_conn)
     if not inspector.has_table("users"):
         return
@@ -73,12 +105,59 @@ def _run_startup_migrations(sync_conn) -> None:
         invite_columns = {
             column["name"] for column in inspector.get_columns("organization_invites")
         }
+        if "token" not in invite_columns:
+            sync_conn.execute(
+                text(
+                    "ALTER TABLE organization_invites "
+                    "ADD COLUMN token VARCHAR(255)"
+                )
+            )
+        missing_invite_tokens = sync_conn.execute(
+            text("SELECT id FROM organization_invites WHERE token IS NULL")
+        ).fetchall()
+        for row in missing_invite_tokens:
+            sync_conn.execute(
+                text(
+                    "UPDATE organization_invites "
+                    "SET token = :token "
+                    "WHERE id = :invite_id"
+                ),
+                {"token": secrets.token_urlsafe(32), "invite_id": row.id},
+            )
+        sync_conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_organization_invites_token "
+                "ON organization_invites (token)"
+            )
+        )
         if "email_sent_at" not in invite_columns:
             sync_conn.execute(
                 text(
                     "ALTER TABLE organization_invites "
                     "ADD COLUMN email_sent_at DATETIME"
                 )
+            )
+
+    if inspector.has_table("webhooks"):
+        webhook_columns = {column["name"] for column in inspector.get_columns("webhooks")}
+        if "signing_secret" not in webhook_columns:
+            sync_conn.execute(
+                text("ALTER TABLE webhooks ADD COLUMN signing_secret VARCHAR(255)")
+            )
+        missing_signing_secrets = sync_conn.execute(
+            text("SELECT id FROM webhooks WHERE signing_secret IS NULL")
+        ).fetchall()
+        for row in missing_signing_secrets:
+            sync_conn.execute(
+                text(
+                    "UPDATE webhooks "
+                    "SET signing_secret = :signing_secret "
+                    "WHERE id = :webhook_id"
+                ),
+                {
+                    "signing_secret": secrets.token_urlsafe(32),
+                    "webhook_id": row.id,
+                },
             )
         if "last_email_error" not in invite_columns:
             sync_conn.execute(

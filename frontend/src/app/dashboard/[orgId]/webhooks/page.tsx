@@ -37,9 +37,13 @@ export default function WebhooksPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState("");
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
+  const [deliveriesByWebhook, setDeliveriesByWebhook] = useState<
+    Record<string, WebhookDeliveryAttempt[]>
+  >({});
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [url, setUrl] = useState("");
+  const [signingSecret, setSigningSecret] = useState("");
   const [saving, setSaving] = useState(false);
   const selectedProductName =
     products.find((product) => product.id === selectedProduct)?.name ||
@@ -77,13 +81,21 @@ export default function WebhooksPage() {
     (async () => {
       try {
         const data = await api.webhooks.list(selectedProduct);
+        const deliveries = await Promise.all(
+          data.map(async (webhook) => [
+            webhook.id,
+            await api.webhooks.deliveries(selectedProduct, webhook.id, 5),
+          ])
+        );
         if (!cancelled) {
           setWebhooks(data);
+          setDeliveriesByWebhook(Object.fromEntries(deliveries));
         }
       } catch (err: any) {
         if (!cancelled) {
           toast.error(err.message);
           setWebhooks([]);
+          setDeliveriesByWebhook({});
         }
       } finally {
         if (!cancelled) {
@@ -102,8 +114,13 @@ export default function WebhooksPage() {
     if (!selectedProduct) return;
     try {
       setSaving(true);
-      await api.webhooks.create(selectedProduct, { url, enabled: true });
+      await api.webhooks.create(selectedProduct, {
+        url,
+        signing_secret: signingSecret || undefined,
+        enabled: true,
+      });
       setUrl("");
+      setSigningSecret("");
       setDialogOpen(false);
       toast.success("Webhook created");
       fetchWebhooks();
@@ -130,10 +147,18 @@ export default function WebhooksPage() {
   const fetchWebhooks = async () => {
     if (!selectedProduct) {
       setWebhooks([]);
+      setDeliveriesByWebhook({});
       return;
     }
     const data = await api.webhooks.list(selectedProduct);
+    const deliveries = await Promise.all(
+      data.map(async (webhook) => [
+        webhook.id,
+        await api.webhooks.deliveries(selectedProduct, webhook.id, 5),
+      ])
+    );
     setWebhooks(data);
+    setDeliveriesByWebhook(Object.fromEntries(deliveries));
   };
 
   if (loading)
@@ -191,8 +216,17 @@ export default function WebhooksPage() {
                     required
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Signing Secret</Label>
+                  <Input
+                    value={signingSecret}
+                    onChange={(e) => setSigningSecret(e.target.value)}
+                    placeholder="Leave blank to auto-generate"
+                  />
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  This webhook applies to the currently selected product.
+                  This webhook applies to the currently selected product and
+                  signs every request with `X-ConfigHub-Signature-256`.
                 </p>
                 <Button type="submit" className="w-full" disabled={saving}>
                   {saving ? "Creating..." : "Create"}
@@ -225,8 +259,10 @@ export default function WebhooksPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>URL</TableHead>
+                <TableHead>Signing</TableHead>
                 <TableHead>Scope</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Recent Deliveries</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="w-16" />
               </TableRow>
@@ -236,6 +272,11 @@ export default function WebhooksPage() {
                 <TableRow key={wh.id}>
                   <TableCell className="font-mono text-sm max-w-[300px] truncate">
                     {wh.url}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    <span title={wh.signing_secret}>
+                      {`${wh.signing_secret.slice(0, 10)}...`}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
@@ -259,6 +300,34 @@ export default function WebhooksPage() {
                     <Badge variant={wh.enabled ? "default" : "secondary"}>
                       {wh.enabled ? "Active" : "Inactive"}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <div className="space-y-2">
+                      {(deliveriesByWebhook[wh.id] || []).length === 0 ? (
+                        <span className="text-sm text-muted-foreground">
+                          No deliveries yet
+                        </span>
+                      ) : (
+                        (deliveriesByWebhook[wh.id] || []).map((attempt) => (
+                          <div key={attempt.id} className="text-xs">
+                            <Badge
+                              variant={
+                                attempt.delivered_at ? "default" : "secondary"
+                              }
+                              className="mr-2"
+                            >
+                              {attempt.delivered_at ? "Delivered" : "Failed"}
+                            </Badge>
+                            <span className="text-muted-foreground">
+                              {attempt.event} · try {attempt.attempt_number}
+                              {attempt.status_code
+                                ? ` · HTTP ${attempt.status_code}`
+                                : ""}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {new Date(wh.created_at).toLocaleDateString()}

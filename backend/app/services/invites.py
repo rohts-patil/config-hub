@@ -9,7 +9,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models.organization import Organization, OrganizationInvite, OrganizationMember
+from app.models.organization import (
+    Organization,
+    OrganizationInvite,
+    OrganizationMember,
+    generate_invite_token,
+)
 from app.models.user import User
 from app.services.audit import record_audit
 from app.services.mailer import EmailConfigurationError, send_email
@@ -24,10 +29,14 @@ async def send_org_invite_email(
     organization: Organization,
     inviter: User,
 ) -> None:
+    if not invite.token:
+        invite.token = generate_invite_token()
+
     signup_query = (
         f"email={quote(invite.email)}"
         f"&org={quote(organization.name)}"
         f"&role={quote(invite.role.value)}"
+        f"&invite_token={quote(invite.token)}"
     )
     signup_url = f"{settings.FRONTEND_APP_URL.rstrip('/')}/register?{signup_query}"
     login_url = f"{settings.FRONTEND_APP_URL.rstrip('/')}/login?{signup_query}"
@@ -65,7 +74,56 @@ async def accept_pending_org_invites(db: AsyncSession, user: User) -> int:
             func.lower(OrganizationInvite.email) == normalized_email
         )
     )
-    invites = invite_result.scalars().all()
+    return await _accept_invites(db, user, invite_result.scalars().all())
+
+
+async def get_org_invite_by_token(
+    db: AsyncSession, invite_token: str
+) -> OrganizationInvite | None:
+    result = await db.execute(
+        select(OrganizationInvite).where(OrganizationInvite.token == invite_token)
+    )
+    return result.scalar_one_or_none()
+
+
+async def validate_invite_token_for_email(
+    db: AsyncSession,
+    invite_token: str | None,
+    email: str,
+) -> OrganizationInvite | None:
+    if not invite_token:
+        return None
+
+    invite = await get_org_invite_by_token(db, invite_token)
+    if invite is None:
+        return None
+    if normalize_email(invite.email) != normalize_email(email):
+        raise ValueError("This invite was issued for a different email address")
+    return invite
+
+
+async def accept_org_invite_token(
+    db: AsyncSession,
+    user: User,
+    invite_token: str | None,
+) -> int:
+    if not invite_token:
+        return 0
+
+    invite = await get_org_invite_by_token(db, invite_token)
+    if invite is None:
+        return 0
+    if normalize_email(invite.email) != normalize_email(user.email):
+        raise ValueError("This invite was issued for a different email address")
+    return await _accept_invites(db, user, [invite])
+
+
+async def _accept_invites(
+    db: AsyncSession,
+    user: User,
+    invites: list[OrganizationInvite],
+) -> int:
+    normalized_email = normalize_email(user.email)
     accepted_count = 0
 
     for invite in invites:

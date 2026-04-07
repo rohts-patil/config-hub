@@ -32,14 +32,16 @@ function RegisterPageContent() {
   const inviteEmail = searchParams.get("email") || "";
   const inviteOrg = searchParams.get("org") || "";
   const inviteRole = searchParams.get("role") || "";
+  const inviteToken = searchParams.get("invite_token") || "";
   const loginHref = useMemo(() => {
     const params = new URLSearchParams();
     if (inviteEmail) params.set("email", inviteEmail);
     if (inviteOrg) params.set("org", inviteOrg);
     if (inviteRole) params.set("role", inviteRole);
+    if (inviteToken) params.set("invite_token", inviteToken);
     const qs = params.toString();
     return qs ? `/login?${qs}` : "/login";
-  }, [inviteEmail, inviteOrg, inviteRole]);
+  }, [inviteEmail, inviteOrg, inviteRole, inviteToken]);
 
   useEffect(() => {
     if (inviteEmail) {
@@ -58,7 +60,7 @@ function RegisterPageContent() {
     e.preventDefault();
     setLoading(true);
     try {
-      await register(email, name, password);
+      await register(email, name, password, inviteToken || undefined);
       router.push("/");
       toast.success("Account created!");
     } catch (err: any) {
@@ -71,7 +73,7 @@ function RegisterPageContent() {
   const handleGoogleCredential = async (credential: string) => {
     setGoogleLoading(true);
     try {
-      await loginWithGoogle(credential);
+      await loginWithGoogle(credential, inviteToken || undefined);
       router.push("/");
       toast.success("Welcome to ConfigHub!");
     } finally {

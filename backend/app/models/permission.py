@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 """Permission, Tag, SDKKey, AuditLog, Webhook models."""
 
+import secrets
 import uuid
 from datetime import datetime, timezone
 
@@ -19,6 +20,10 @@ if TYPE_CHECKING:
     from app.models.product import Product
     from app.models.setting import Setting
     from app.models.user import User
+
+
+def generate_webhook_signing_secret() -> str:
+    return secrets.token_urlsafe(32)
 
 
 class PermissionGroup(Base):
@@ -185,9 +190,41 @@ class Webhook(Base):
     environment_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("environments.id"), nullable=True
     )
+    signing_secret: Mapped[str] = mapped_column(
+        String(255), nullable=False, default=generate_webhook_signing_secret
+    )
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     product: Mapped["Product"] = relationship(back_populates="webhooks")  # noqa: F821
+    delivery_attempts: Mapped[List["WebhookDeliveryAttempt"]] = relationship(
+        back_populates="webhook",
+        cascade="all, delete-orphan",
+        order_by="desc(WebhookDeliveryAttempt.created_at)",
+    )
+
+
+class WebhookDeliveryAttempt(Base):
+    __tablename__ = "webhook_delivery_attempts"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    webhook_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("webhooks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    event: Mapped[str] = mapped_column(String(255), nullable=False)
+    attempt_number: Mapped[int] = mapped_column(nullable=False)
+    status_code: Mapped[Optional[int]] = mapped_column(nullable=True)
+    response_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    delivered_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+    )
+
+    webhook: Mapped["Webhook"] = relationship(back_populates="delivery_attempts")

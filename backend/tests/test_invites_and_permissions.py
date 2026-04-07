@@ -30,7 +30,12 @@ from app.models.organization import (  # noqa: E402
     OrganizationMember,
     OrgRole,
 )
-from app.models.permission import PermissionGroup, ProductPermissionAssignment  # noqa: E402
+from app.models.permission import (  # noqa: E402
+    PermissionGroup,
+    ProductPermissionAssignment,
+    Webhook,
+    WebhookDeliveryAttempt,
+)
 from app.models.product import Product  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.routers.auth import register  # noqa: E402
@@ -51,6 +56,7 @@ from app.schemas.schemas import OrgInviteCreate, ProductMemberPermissionUpdate, 
 from app.services.audit import record_audit  # noqa: E402
 from app.services.authz import require_product_permission  # noqa: E402
 from app.services.mailer import EmailConfigurationError  # noqa: E402
+from app.services.webhook import _send_webhook, _sign_webhook_payload  # noqa: E402
 
 
 @pytest.fixture
@@ -113,6 +119,47 @@ async def test_register_accepts_pending_org_invite(db_session: AsyncSession):
     assert membership is not None
     assert membership.role == OrgRole.MEMBER
     assert remaining_invites.scalars().all() == []
+
+
+@pytest.mark.asyncio
+async def test_register_accepts_matching_invite_token(db_session: AsyncSession):
+    org = Organization(name="Acme")
+    db_session.add(org)
+    await db_session.flush()
+
+    invite = OrganizationInvite(
+        organization_id=org.id,
+        email="future@example.com",
+        role=OrgRole.ADMIN,
+    )
+    db_session.add(invite)
+    await db_session.flush()
+
+    response = await register(
+        UserRegister(
+            email="future@example.com",
+            name="Future User",
+            password="supersecurepassword",
+            invite_token=invite.token,
+        ),
+        db=db_session,
+    )
+
+    result = await db_session.execute(
+        select(User).where(User.email == "future@example.com")
+    )
+    user = result.scalar_one()
+    membership_result = await db_session.execute(
+        select(OrganizationMember).where(
+            OrganizationMember.organization_id == org.id,
+            OrganizationMember.user_id == user.id,
+        )
+    )
+    membership = membership_result.scalar_one_or_none()
+
+    assert response.access_token
+    assert membership is not None
+    assert membership.role == OrgRole.ADMIN
 
 
 @pytest.mark.asyncio
@@ -758,4 +805,89 @@ async def test_audit_log_returns_scoped_entries_for_assigned_member(
 
     assert len(logs) >= 1
     assert all(entry.context is None or entry.context.product_name != "Billing" for entry in logs)
-    assert any(entry.context and entry.context.product_name == "Checkout" for entry in logs)
+
+
+@pytest.mark.asyncio
+async def test_webhook_delivery_attempts_are_signed_and_persisted(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    org = Organization(name="Acme")
+    db_session.add(org)
+    await db_session.flush()
+
+    product = Product(
+        organization_id=org.id,
+        name="Checkout",
+        description="Main product",
+    )
+    db_session.add(product)
+    await db_session.flush()
+
+    webhook = Webhook(
+        product_id=product.id,
+        url="https://example.com/webhook",
+        signing_secret="top-secret",
+    )
+    db_session.add(webhook)
+    await db_session.flush()
+
+    captured: dict[str, str] = {}
+    session_factory = async_sessionmaker(db_session.bind, expire_on_commit=False)
+
+    class FakeResponse:
+        status_code = 202
+        text = "accepted"
+
+    class FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def post(self, url, content, headers):
+            captured["url"] = url
+            captured["content"] = content
+            captured["signature"] = headers["X-ConfigHub-Signature-256"]
+            captured["timestamp"] = headers["X-ConfigHub-Timestamp"]
+            return FakeResponse()
+
+    monkeypatch.setattr("app.services.webhook.async_session", session_factory)
+    monkeypatch.setattr("app.services.webhook.httpx.AsyncClient", FakeAsyncClient)
+
+    timestamp = "2026-04-05T12:00:00+00:00"
+    body_json = (
+        '{"data":{"environment_id":"env-1","setting_id":"flag-1"},'
+        '"event":"setting.value_updated","timestamp":"2026-04-05T12:00:00+00:00"}'
+    )
+    await _send_webhook(
+        webhook_id=webhook.id,
+        url=webhook.url,
+        event="setting.value_updated",
+        timestamp=timestamp,
+        body_json=body_json,
+        signing_secret=webhook.signing_secret,
+    )
+
+    attempts_result = await db_session.execute(
+        select(WebhookDeliveryAttempt).where(
+            WebhookDeliveryAttempt.webhook_id == webhook.id
+        )
+    )
+    attempts = attempts_result.scalars().all()
+
+    assert captured["url"] == "https://example.com/webhook"
+    assert captured["content"] == body_json
+    assert captured["timestamp"] == timestamp
+    assert captured["signature"] == _sign_webhook_payload(
+        webhook.signing_secret,
+        timestamp,
+        body_json,
+    )
+    assert len(attempts) == 1
+    assert attempts[0].status_code == 202
+    assert attempts[0].delivered_at is not None

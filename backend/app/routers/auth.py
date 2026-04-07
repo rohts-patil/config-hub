@@ -23,7 +23,12 @@ from app.services.auth import (
     get_current_user,
     verify_google_id_token,
 )
-from app.services.invites import accept_pending_org_invites, normalize_email
+from app.services.invites import (
+    accept_org_invite_token,
+    accept_pending_org_invites,
+    normalize_email,
+    validate_invite_token_for_email,
+)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
@@ -33,6 +38,11 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 )
 async def register(body: UserRegister, db: AsyncSession = Depends(get_db)):
     normalized_email = normalize_email(body.email)
+    try:
+        await validate_invite_token_for_email(db, body.invite_token, normalized_email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     # Check if user exists
     result = await db.execute(
         select(User).where(func.lower(User.email) == normalized_email)
@@ -47,6 +57,10 @@ async def register(body: UserRegister, db: AsyncSession = Depends(get_db)):
     )
     db.add(user)
     await db.flush()
+    try:
+        await accept_org_invite_token(db, user, body.invite_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     await accept_pending_org_invites(db, user)
     token = create_access_token(user.id)
     return TokenResponse(access_token=token)
@@ -55,6 +69,11 @@ async def register(body: UserRegister, db: AsyncSession = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 async def login(body: UserLogin, db: AsyncSession = Depends(get_db)):
     normalized_email = normalize_email(body.email)
+    try:
+        await validate_invite_token_for_email(db, body.invite_token, normalized_email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     result = await db.execute(
         select(User).where(func.lower(User.email) == normalized_email)
     )
@@ -62,6 +81,10 @@ async def login(body: UserLogin, db: AsyncSession = Depends(get_db)):
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
+    try:
+        await accept_org_invite_token(db, user, body.invite_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     await accept_pending_org_invites(db, user)
     token = create_access_token(user.id)
     return TokenResponse(access_token=token)
@@ -71,6 +94,10 @@ async def login(body: UserLogin, db: AsyncSession = Depends(get_db)):
 async def google_login(body: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
     identity = await verify_google_id_token(body.credential)
     normalized_email = normalize_email(identity.email)
+    try:
+        await validate_invite_token_for_email(db, body.invite_token, normalized_email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     result = await db.execute(select(User).where(User.google_sub == identity.sub))
     user = result.scalar_one_or_none()
@@ -99,6 +126,10 @@ async def google_login(body: GoogleAuthRequest, db: AsyncSession = Depends(get_d
                 user.google_sub = identity.sub
 
     await db.flush()
+    try:
+        await accept_org_invite_token(db, user, body.invite_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     await accept_pending_org_invites(db, user)
     token = create_access_token(user.id)
     return TokenResponse(access_token=token)

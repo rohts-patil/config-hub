@@ -39,17 +39,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 // ── Auth ──
 export const api = {
   auth: {
-    register: (data: { email: string; name: string; password: string }) =>
+    register: (data: {
+      email: string;
+      name: string;
+      password: string;
+      invite_token?: string;
+    }) =>
       request<{ access_token: string; token_type: string }>(
         "/api/v1/auth/register",
         { method: "POST", body: JSON.stringify(data) }
       ),
-    login: (data: { email: string; password: string }) =>
+    login: (data: { email: string; password: string; invite_token?: string }) =>
       request<{ access_token: string; token_type: string }>(
         "/api/v1/auth/login",
         { method: "POST", body: JSON.stringify(data) }
       ),
-    google: (data: { credential: string }) =>
+    google: (data: { credential: string; invite_token?: string }) =>
       request<{ access_token: string; token_type: string }>(
         "/api/v1/auth/google",
         { method: "POST", body: JSON.stringify(data) }
@@ -363,12 +368,17 @@ export const api = {
   webhooks: {
     list: (productId: string) =>
       request<Webhook[]>(`/api/v1/products/${productId}/webhooks`),
+    deliveries: (productId: string, webhookId: string, limit = 5) =>
+      request<WebhookDeliveryAttempt[]>(
+        `/api/v1/products/${productId}/webhooks/${webhookId}/deliveries?limit=${limit}`
+      ),
     create: (
       productId: string,
       data: {
         url: string;
         config_id?: string;
         environment_id?: string;
+        signing_secret?: string;
         enabled?: boolean;
       }
     ) =>

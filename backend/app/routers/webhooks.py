@@ -9,11 +9,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User
-from app.models.permission import Webhook
-from app.schemas.schemas import WebhookCreate, WebhookUpdate, WebhookOut
+from app.models.permission import Webhook, WebhookDeliveryAttempt
+from app.schemas.schemas import (
+    WebhookCreate,
+    WebhookDeliveryAttemptOut,
+    WebhookOut,
+    WebhookUpdate,
+)
 from app.services.auth import get_current_user
 from app.services.audit import get_org_id_for_product, record_audit
-from app.services.authz import require_product_member, require_product_permission
+from app.services.authz import require_product_permission
 
 router = APIRouter(prefix="/api/v1/products/{product_id}/webhooks", tags=["Webhooks"])
 
@@ -24,7 +29,7 @@ async def list_webhooks(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageWebhooks")
     result = await db.execute(select(Webhook).where(Webhook.product_id == product_id))
     return result.scalars().all()
 
@@ -37,12 +42,18 @@ async def create_webhook(
     current_user: User = Depends(get_current_user),
 ):
     await require_product_permission(db, product_id, current_user, "canManageWebhooks")
+    webhook_kwargs = {
+        "product_id": product_id,
+        "url": body.url,
+        "config_id": body.config_id,
+        "environment_id": body.environment_id,
+        "enabled": body.enabled,
+    }
+    if body.signing_secret:
+        webhook_kwargs["signing_secret"] = body.signing_secret
+
     webhook = Webhook(
-        product_id=product_id,
-        url=body.url,
-        config_id=body.config_id,
-        environment_id=body.environment_id,
-        enabled=body.enabled,
+        **webhook_kwargs,
     )
     db.add(webhook)
     await db.flush()
@@ -60,6 +71,7 @@ async def create_webhook(
                 "url": webhook.url,
                 "config_id": webhook.config_id,
                 "environment_id": webhook.environment_id,
+                "signing_secret_configured": bool(webhook.signing_secret),
                 "enabled": webhook.enabled,
             },
         )
@@ -73,7 +85,7 @@ async def get_webhook(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_product_member(db, product_id, current_user)
+    await require_product_permission(db, product_id, current_user, "canManageWebhooks")
     result = await db.execute(
         select(Webhook).where(
             Webhook.id == webhook_id, Webhook.product_id == product_id
@@ -106,6 +118,7 @@ async def update_webhook(
         "url": webhook.url,
         "config_id": webhook.config_id,
         "environment_id": webhook.environment_id,
+        "signing_secret_configured": bool(webhook.signing_secret),
         "enabled": webhook.enabled,
     }
     if body.url is not None:
@@ -114,6 +127,8 @@ async def update_webhook(
         webhook.config_id = body.config_id
     if body.environment_id is not None:
         webhook.environment_id = body.environment_id
+    if body.signing_secret is not None:
+        webhook.signing_secret = body.signing_secret
     if body.enabled is not None:
         webhook.enabled = body.enabled
     await db.flush()
@@ -132,6 +147,7 @@ async def update_webhook(
                 "url": webhook.url,
                 "config_id": webhook.config_id,
                 "environment_id": webhook.environment_id,
+                "signing_secret_configured": bool(webhook.signing_secret),
                 "enabled": webhook.enabled,
             },
         )
@@ -168,7 +184,40 @@ async def delete_webhook(
                 "url": webhook.url,
                 "config_id": webhook.config_id,
                 "environment_id": webhook.environment_id,
+                "signing_secret_configured": bool(webhook.signing_secret),
                 "enabled": webhook.enabled,
             },
         )
     await db.delete(webhook)
+
+
+@router.get("/{webhook_id}/deliveries", response_model=List[WebhookDeliveryAttemptOut])
+async def list_webhook_deliveries(
+    product_id: str,
+    webhook_id: str,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await require_product_permission(db, product_id, current_user, "canManageWebhooks")
+    webhook = await _load_webhook(product_id, webhook_id, db)
+    result = await db.execute(
+        select(WebhookDeliveryAttempt)
+        .where(WebhookDeliveryAttempt.webhook_id == webhook.id)
+        .order_by(WebhookDeliveryAttempt.created_at.desc())
+        .limit(min(max(limit, 1), 50))
+    )
+    return result.scalars().all()
+
+
+async def _load_webhook(product_id: str, webhook_id: str, db: AsyncSession) -> Webhook:
+    result = await db.execute(
+        select(Webhook).where(
+            Webhook.id == webhook_id,
+            Webhook.product_id == product_id,
+        )
+    )
+    webhook = result.scalar_one_or_none()
+    if not webhook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    return webhook

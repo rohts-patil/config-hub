@@ -14,15 +14,18 @@ class UserRegister(BaseModel):
     email: EmailStr
     name: str = Field(min_length=1, max_length=255)
     password: str = Field(min_length=8, max_length=128)
+    invite_token: Optional[str] = Field(default=None, min_length=1, max_length=255)
 
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+    invite_token: Optional[str] = Field(default=None, min_length=1, max_length=255)
 
 
 class GoogleAuthRequest(BaseModel):
     credential: str = Field(min_length=1)
+    invite_token: Optional[str] = Field(default=None, min_length=1, max_length=255)
 
 
 class TokenResponse(BaseModel):
@@ -387,6 +390,7 @@ class WebhookCreate(BaseModel):
     url: str = Field(max_length=2048)
     config_id: Optional[str] = None
     environment_id: Optional[str] = None
+    signing_secret: Optional[str] = Field(default=None, min_length=1, max_length=255)
     enabled: bool = True
 
 
@@ -394,6 +398,7 @@ class WebhookUpdate(BaseModel):
     url: Optional[str] = Field(default=None, max_length=2048)
     config_id: Optional[str] = None
     environment_id: Optional[str] = None
+    signing_secret: Optional[str] = Field(default=None, min_length=1, max_length=255)
     enabled: Optional[bool] = None
 
 
@@ -403,7 +408,22 @@ class WebhookOut(BaseModel):
     url: str
     config_id: Optional[str]
     environment_id: Optional[str]
+    signing_secret: str
     enabled: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class WebhookDeliveryAttemptOut(BaseModel):
+    id: str
+    webhook_id: str
+    event: str
+    attempt_number: int
+    status_code: Optional[int]
+    response_body: Optional[str]
+    error_message: Optional[str]
+    delivered_at: Optional[datetime]
     created_at: datetime
 
     model_config = {"from_attributes": True}

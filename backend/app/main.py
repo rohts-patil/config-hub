@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import create_tables
+from app.database import run_database_migrations
 
 # Import all models so SQLAlchemy knows about them
 from app.models import user, organization, product, config, environment  # noqa: F401
@@ -32,8 +32,8 @@ from app.routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: create tables. Shutdown: cleanup."""
-    await create_tables()
+    """Startup: run database migrations. Shutdown: cleanup."""
+    await run_database_migrations()
     yield
 
 

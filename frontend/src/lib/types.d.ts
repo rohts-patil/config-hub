@@ -229,7 +229,20 @@ interface Webhook {
   url: string;
   config_id?: string;
   environment_id?: string;
+  signing_secret: string;
   enabled: boolean;
+  created_at: string;
+}
+
+interface WebhookDeliveryAttempt {
+  id: string;
+  webhook_id: string;
+  event: string;
+  attempt_number: number;
+  status_code?: number;
+  response_body?: string;
+  error_message?: string;
+  delivered_at?: string;
   created_at: string;
 }
 

@@ -12,9 +12,18 @@ import { api } from "@/lib/api";
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (credential: string) => Promise<void>;
-  register: (email: string, name: string, password: string) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+    inviteToken?: string
+  ) => Promise<void>;
+  loginWithGoogle: (credential: string, inviteToken?: string) => Promise<void>;
+  register: (
+    email: string,
+    name: string,
+    password: string,
+    inviteToken?: string
+  ) => Promise<void>;
   logout: () => void;
 }
 
@@ -51,18 +60,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetchUser();
   }, [fetchUser]);
 
-  const login = async (email: string, password: string) => {
-    const res = await api.auth.login({ email, password });
+  const login = async (
+    email: string,
+    password: string,
+    inviteToken?: string
+  ) => {
+    const res = await api.auth.login({
+      email,
+      password,
+      invite_token: inviteToken,
+    });
     await authenticateWithToken(res.access_token);
   };
 
-  const loginWithGoogle = async (credential: string) => {
-    const res = await api.auth.google({ credential });
+  const loginWithGoogle = async (credential: string, inviteToken?: string) => {
+    const res = await api.auth.google({
+      credential,
+      invite_token: inviteToken,
+    });
     await authenticateWithToken(res.access_token);
   };
 
-  const register = async (email: string, name: string, password: string) => {
-    const res = await api.auth.register({ email, name, password });
+  const register = async (
+    email: string,
+    name: string,
+    password: string,
+    inviteToken?: string
+  ) => {
+    const res = await api.auth.register({
+      email,
+      name,
+      password,
+      invite_token: inviteToken,
+    });
     await authenticateWithToken(res.access_token);
   };
 

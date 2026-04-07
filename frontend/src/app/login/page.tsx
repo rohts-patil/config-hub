@@ -31,14 +31,16 @@ function LoginPageContent() {
   const inviteEmail = searchParams.get("email") || "";
   const inviteOrg = searchParams.get("org") || "";
   const inviteRole = searchParams.get("role") || "";
+  const inviteToken = searchParams.get("invite_token") || "";
   const registerHref = useMemo(() => {
     const params = new URLSearchParams();
     if (inviteEmail) params.set("email", inviteEmail);
     if (inviteOrg) params.set("org", inviteOrg);
     if (inviteRole) params.set("role", inviteRole);
+    if (inviteToken) params.set("invite_token", inviteToken);
     const qs = params.toString();
     return qs ? `/register?${qs}` : "/register";
-  }, [inviteEmail, inviteOrg, inviteRole]);
+  }, [inviteEmail, inviteOrg, inviteRole, inviteToken]);
 
   useEffect(() => {
     if (inviteEmail) {
@@ -57,7 +59,7 @@ function LoginPageContent() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email, password, inviteToken || undefined);
       router.push("/");
       toast.success("Welcome back!");
     } catch (err: any) {
@@ -70,7 +72,7 @@ function LoginPageContent() {
   const handleGoogleCredential = async (credential: string) => {
     setGoogleLoading(true);
     try {
-      await loginWithGoogle(credential);
+      await loginWithGoogle(credential, inviteToken || undefined);
       router.push("/");
       toast.success("Welcome back!");
     } finally {

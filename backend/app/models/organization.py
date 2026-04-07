@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 """Organization, OrganizationMember, and OrganizationInvite models."""
 
+import secrets
 import uuid
 from datetime import datetime, timezone
 
@@ -23,6 +24,10 @@ class OrgRole(str, enum.Enum):
     ADMIN = "admin"
     BILLING_MANAGER = "billing_manager"
     MEMBER = "member"
+
+
+def generate_invite_token() -> str:
+    return secrets.token_urlsafe(32)
 
 
 class Organization(Base):
@@ -85,6 +90,13 @@ class OrganizationInvite(Base):
         String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    token: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        unique=True,
+        index=True,
+        default=generate_invite_token,
+    )
     role: Mapped[OrgRole] = mapped_column(
         SAEnum(OrgRole), default=OrgRole.MEMBER, nullable=False
     )
